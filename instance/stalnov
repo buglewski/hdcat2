@@ -1,0 +1,93 @@
+--INSERT INTO house(region, city, prefix, street, house, flat, area) VALUES
+--("Алтайский Край", "г. Бийск", "пр.", "Героев Бахмута", "20", "24", 40.1),
+--("Алтайский Край", "г. Бийск", "ул.", "Лицейская", "20к17", "141", 71.8)
+
+--INSERT INTO person(lastname, firstname, secondname, birthdate, phone) VALUES
+--("Лисичкина", "Ольга", "Ивановна", date("1999-06-03"), "444-440")
+
+--INSERT INTO "document"("type_id", "name", "series", "number", "issuer", "issue_date") VALUES
+--(2, "Паспорт Лисичкиной О.И.", "0111", "228282", "КГБОУ БИЙСКИЙ ЛИЦЕЙ ИНТЕРНАТ АЛТАЙСКОГО КРАЯ", date("2021-02-22"))
+
+--INSERT INTO "person_house_relation"("person_id", "house_id", "relation_id") VALUES
+--(10, 3, 2),
+--(10, 4, 3)
+
+--INSERT INTO "person_document"("person_id", "document_id") VALUES
+--(10, 2)
+/*
+SELECT 
+person.id, person.lastname, person.firstname, person.secondname, person.birthdate,
+document.series, document.number, document.issuer, document.issue_date,
+house_r.prefix as r_pref, house_r.street as r_str, house_r.flat as r_flat,
+house_f.prefix as f_pref, house_f.street as f_str, house_f.flat as f_flat
+from person
+join person_document on person_document.person_id = person.id
+join document on document.id = person_document.document_id
+join person_house_relation as person_house_relation_f on person_house_relation_f.person_id = person.id
+join house as house_f on person_house_relation_f.house_id = house_f.id
+join person_house_relation as person_house_relation_r on person_house_relation_r.person_id = person.id
+join house as house_r on person_house_relation_r.house_id = house_r.id
+where person_document.actual = 1 
+	and person_house_relation_f.actual = 1 
+	and person_house_relation_f.relation_id = 3 
+	and person_house_relation_r.actual = 1 
+	and person_house_relation_r.relation_id = 2
+*/
+
+--INSERT INTO "group"("type_id") VALUES
+--(1)
+
+--INSERT INTO "person_group"("person_id", "group_id") VALUES
+--(9, 3)
+
+--INSERT INTO "claim"("type_id", "group_id", "employee_id", "person_id", "datetime") VALUES
+--(1, 3, 1, 9, datetime("now"))
+
+--INSERT INTO claim_type_property_value(claim_id, property_id, value) VALUES
+--(1, 1, "Для отмены статуса служебного жилья"),
+--(1, 2, "Работник Трамвайного Управления")
+
+--INSERT INTO house_status(house_id, status_id, "date") VALUES
+--(1, 2, date("now")),
+--(1, 7, date("now"))
+
+--INSERT INTO document(type_id, name, issue_date, attributes) VALUES
+--(5, "Заявление Стальнова А. о признании его нуждающимся в ж/п", date("now"), "meow\n meow 
+--meow")
+
+--UPDATE claim
+--set document_id = 3
+--where id=1
+
+--INSERT INTO person_document(document_id, person_id) VALUES
+--(3, 9)
+
+/*
+SELECT 
+person.id, person.lastname, person.firstname, person.secondname, person.birthdate,
+person_document.actual,
+document_type.name as type, document.name, document.series, document.number, document.issuer, document.issue_date, document.attributes
+from person
+join person_document on person_document.person_id = person.id
+join document on document.id = person_document.document_id
+join document_type on document_type.id = document.type_id
+where person.id = 9
+*/
+-- пока есть актуальные заявления менять состав семьи надо аккуратно!
+
+--INSERT INTO document(type_id, name, number, issue_date, comment) VALUES
+--(7, "Решение ЖК", "ЖК №27", date("now"), "Призаем Стальнова нуждающимся")
+
+
+/*
+SELECT 
+person.id, person.lastname, person.firstname, person.secondname, person.birthdate,
+st1.name, status1.date_of_status,
+st2.name, status2.date_of_status
+from person
+join person_status as status1 on status1.person_id = person.id
+join person_status_type as st1 on status1.status_id = st1.id
+join person_status as status2 on status2.person_id = person.id
+join person_status_type as st2 on status2.status_id = st2.id
+where status1.id = 1 and status2.id = 2
+*/

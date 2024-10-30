@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Persons{% endblock %}
+
+{% block bar %}
+<h2> Меню: </h2>
+<div><a href = "/persons/0"> Новая персона </a> </div>
+{% endblock %}
+
+
+{% block content %}
+
+{{ person_list(persons=persons) }}
+
+{% endblock %}

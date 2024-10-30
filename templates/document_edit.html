@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block title %}Документ{% endblock %}
+
+{% block content %}
+{% if flag=="new_doc" %}
+{{ edit_doc(document_types, flag) }}
+{% else %}
+{{ edit_doc(document_types, flag, document) }}
+{% endif %}
+{% endblock %}

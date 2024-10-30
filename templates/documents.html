@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Документы{% endblock %}
+
+{% block bar %}
+<h2> Меню: </h2>
+<div><a href = "/documents/0"> Создать новый документ </a> </div>
+{% endblock %}
+
+{% block content %}
+{{ doc_list(documents) }}
+{% endblock %}

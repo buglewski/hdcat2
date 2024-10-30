@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Семья{% endblock %}
+
+{% block content %}
+
+<h1> Члены группы заявителей </h1>
+{{ person_list(flags=['fam_edit', 'details'], persons=family_context.persons) }}
+
+{% if flags.family == "edit_family" %}
+<input type="button" value="Добавить существующую персону" onclick="location.href='?person_action=add_person_to_family';"> 
+<input type="button" value="Добавить новую персону" onclick="location.href='?person_action=create_person';">
+{% endif %}
+
+{% if flags.person == "add_person_to_family" %}
+<input type="button" value="Отмена" onclick="location.href='?';"> 
+
+{{ person_list(flags=['details', 'choose'], persons=family_context.all_persons) }}
+
+{% endif %}
+
+{% if flags.person == "create_person" %}
+<input type="button" value="Отмена" onclick="location.href='?';"> 
+
+{{ edit_person(flags) }}
+
+{% endif %}
+
+
+{% if flags.person == "edit_person" %}
+<input type="button" value="Отмена" onclick="location.href='?';"> 
+
+{{ edit_person(flags, family_context.person_context.person, family_context.person_context) }}
+
+{% endif %}
+
+
+{% endblock %}
