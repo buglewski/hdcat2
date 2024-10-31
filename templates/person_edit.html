@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% set person_context = context %}
+
 {% block title %}
 {% if flags.person == 'create_person' %}
 Новая персона

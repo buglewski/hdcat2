@@ -1,0 +1,114 @@
+{% macro doc_list(documents, flags = {}, ref = '') -%}
+{{ flags }}
+<table width="100%">
+        {% for document in documents %}
+        {% set document_id = document['document.id'] %}
+        <tr>
+                <td>
+                <form action="/documents/{{document_id}}" target="_blank">
+                        <button>Открыть</button>
+                </form>
+                
+                {% if flags.person=='edit_person' and flags.document!='add_document' %}
+                <form method="post">
+                        <input type="hidden"  name="action" value="delete_document_from_person" />
+                        <input type="hidden"  name="delete_document_from_person" value="{{document_id}}" />
+                        <input type="submit" value = "Удалить"></button>
+                </form>
+                <input type="button" value="Ред." onclick="location.href='?{{ ref }}&edit_document={{document_id}}';">
+                <form method="post">
+                        <input type="hidden"  name="action" value="set_dul" />
+                        <input type="hidden"  name="set_dul" value="{{document_id}}" />
+                        <input type="submit" value = "ДУЛ"></button>
+                </form>
+                {% endif %}
+                {% if flags.document=='add_document' %}
+                <form method="post">
+                        <input type="hidden"  name="action" value="add_document" />
+                        <input type="hidden"  name="add_document" value="{{document_id}}" />
+                        <input type="submit" value = "Выбрать"></button>
+                </form>
+                {% endif %}
+                </td>
+                <td> {{loop.index}} </td>
+                {% for item in ['document_type.name', 'document.name', 'document.series', 'document.number', 'document.issuer', 'document.issue_date'] %}
+                        <td> {{document[item]}} </td>
+                {% endfor %}
+        </tr>
+        {% endfor %}
+</table>
+{%- endmacro %}
+
+{% macro family_list(flag = '', families = []) -%}
+<table>
+    
+        {% for family in families %}
+        <tr>
+                <td> {{ loop.index }} </td>
+                <td> 
+                        <form action="/families/{{ family['family.id'] }}" target="_blank">
+                                <button>Открыть</button>
+                        </form>
+                </td>
+                <td> {{ family['family_type.name']}} </td>
+                <td> {{ person_list(['fam_list'], family['persons']) }} </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+{%- endmacro %}
+
+
+{% macro person_list(flags = ['details'], persons = []) -%}
+<table width = "100%">
+    
+        {% for person in persons %}
+        <tr>
+                <td {% if 'details' not in flags %} width="5%" {% endif %}> 
+                        {% if 'choose' in flags %}
+                        <form method="post">
+                                <input type="hidden"  name="action" value="add_person_to_family" />
+                                <input type="hidden"  name="add_person_to_family" value="{{person['person.id']}}" />
+                                <input type="submit" value = "Выбрать"></button>
+                        </form>
+                        {% else %}
+                        {% if 'fam_edit' in flags %}
+                        <form method="post">
+                                <input type="hidden"  name="action" value="delete_person_from_family" />
+                                <input type="hidden"  name="delete_person_from_family" value="{{person['person.id']}}" />
+                                <input type="submit" value = "Удалить"></button>
+                        </form>
+                        {% set person_id = person['person.id'] %}
+                        <input type="button" value="Ред." onclick="location.href='?edit_person={{person_id}}';">
+                        {% else %}
+                        {{loop.index}} 
+                        {% endif %} 
+                        {% endif %}
+                </td>
+                <td {% if 'details' not in flags %} width="60%" {% endif %}> 
+                        <a href="/persons/{{person['person.id']}}">
+                                {{person['person.lastname']}} 
+                                {{person['person.firstname']}} 
+                                {{person['person.secondname']}} 
+                                {% if ('fam_list' in flags or 'fam_edit' in flags) and person['family_person.role'] != '' %} ({{ person['family_person.role']}}) {% endif %}
+                        </a> 
+                </td>
+                <td {% if 'details' not in flags %} width="15%" {% endif %}> 
+                        {{ person['person.birthdate'] }} 
+                </td>
+                <td {% if 'details' not in flags %} width="20%" {% endif %}> 
+                        <a href="/documents/{{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> 
+                </td>
+                {% if 'details' in flags %}
+                <td> {{ person['passport.issuer'] }} </td>
+                <td> {{ person['passport.issue_date'] }} </td>
+                <td> <a href="/houses/{{person['person.house_reg_id']}}"> {{person['house_r.prefix']}} {{person['house_r.street']}} {{person['house_r.house']}}-{{person['house_r.flat']}} </a> </td>
+                <td> <a href="/houses/{{person['person.house_res_id']}}"> {{person['house_f.prefix']}} {{person['house_f.street']}} {{person['house_f.house']}}-{{person['house_f.flat']}} </a> </td>
+                {% endif %}
+        </tr>
+        {% endfor %}
+    </table>
+
+{%- endmacro %}
+
+    

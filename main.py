@@ -3,24 +3,49 @@ import selection
 
 app = Flask(__name__)
 
-def get_person_context(person_id : int, args : dict, flags : dict, connection : selection.Connection):
-    #flags['person'] = 'edit_person'
-    if flags['person'] == 'create_person': return {}
-    person_context = {
-        "person" : connection.select_persons(person_id=person_id)[0],
-        "documents" : connection.select_documents(person_id=person_id),
-        "document_types" : connection.select_document_type()
-    }
+class GetHandler:
+    def get_document_context(self, document_id : int, args : dict, flags : dict, connection : selection.Connection):
+        if flags['document'] == 'create_document': return { "document_types" : connection.select_document_type() }
+        document_context = {
+            "document": connection.select_documents(document_id)[0],
+            "document_types" : connection.select_document_type(),
+            "persons_of_document": connection.select_persons_of_document(document_id)
+        }
+        return document_context
 
-    if "doc_action" in args:
-        person_context["document_list"] = connection.select_documents()
-        flags['document'] = args["doc_action"]
-    if "edit_document" in args:
-        flags['document'] = "create_document"
-        if args["edit_document"] != '0':
-            person_context["document_to_edit"] = connection.select_documents(document_id=args["edit_document"])[0]
+    def get_family_context(self, family_id : int, args : dict, flags : dict, connection : selection.Connection):
+        if flags['family'] == 'create_family': return { 'family_types' : connection.select_family_types() }
+        family_context = {
+            'persons': connection.select_persons_of_family(family_id=family_id),
+            'family': connection.select_families(family_id=family_id)[0],
+            'family_types' : connection.select_family_types()
+        }
+        if "person_action" in args:
+            if args["person_action"] == "add_person_to_family":
+                family_context['all_persons'] = connection.select_persons()
+            flags["person"] = args["person_action"]
+        if "edit_person" in args:
+            flags["person"] = "edit_person"
+            family_context['person_context'] = self.get_person_context(args['edit_person'], args, flags, connection)
+        print(family_context)
+        return family_context
+
+    def get_person_context(self, person_id : int, args : dict, flags : dict, connection : selection.Connection):
+        if flags['person'] == 'create_person': return { "document_types": connection.select_document_type() }
+        person_context = {
+            "person" : connection.select_persons(person_id=person_id)[0],
+            "documents" : connection.select_documents_of_person(person_id=person_id),
+            "linked_families" : connection.select_families_with_persons(person_id=person_id),
+            "document_types": connection.select_document_type()
+        }
+        if "doc_action" in args:
+            if args["doc_action"] == "add_document":
+                person_context["all_document"] = connection.select_documents()
+            flags['document'] = args["doc_action"]
+        if "edit_document" in args:
             flags['document'] = "edit_document"
-    return person_context
+            person_context["document_to_edit"] = connection.select_documents(args["edit_document"])[0]
+        return person_context
 
 def args_to_request(args : dict):
     ans = ''
@@ -29,31 +54,14 @@ def args_to_request(args : dict):
     return ans
 
 @app.route("/", methods=['GET'])
-def get_family_list():
+def get_families():
     connection = selection.Connection()
-    families = connection.select_family_list()
+    families = connection.select_families_with_persons()
+    #print(families)
     return render_template("families.html", families=families)
 
-@app.route("/families/<int:id>", methods=['GET'])
-def get_family(id):
-    connection = selection.Connection()
-    args = request.args.to_dict()
-    flags = {"family": "edit_family"}
-    family_context = {
-        'persons': connection.select_persons_of_family(family_id=id)
-    }
-    if "person_action" in args:
-        if args["person_action"] == "add_person_to_family":
-            family_context['all_persons'] = connection.select_persons()
-        flags["person"] = args["person_action"]
-    if "edit_person" in args:
-        flags["person"] = "edit_person"
-        family_context['person_context'] = get_person_context(args['edit_person'], args, flags, connection)
-    print(flags)
-    return render_template("family_edit.html", flags = flags, family_context=family_context)
-
 @app.route("/persons", methods=['GET'])
-def read_item():
+def get_persons():
     connection = selection.Connection()
     persons = connection.select_persons()
     return render_template("persons.html", persons=persons)
@@ -62,29 +70,28 @@ def read_item():
 def get_documents():
     connection = selection.Connection()
     documents = connection.select_documents()
+    print(documents)
     return render_template("documents.html", documents=documents)
+
+def get_handler(id: int, name: str):
+    connection = selection.Connection()
+    args = request.args.to_dict()
+    flags = {f"{name}": f"edit_{name}" if id > 0 else f"create_{name}"}
+    context = getattr(GetHandler(), f"get_{name}_context")(id, args, flags, connection)
+    print(context)
+    return render_template(f"{name}_edit.html", flags = flags, context=context)
 
 @app.route("/documents/<int:id>", methods=['GET'])
 def get_document(id):
-    connection = selection.Connection()
-    document = connection.select_documents(person_id=0, document_id=id)
-    document_types = connection.select_document_type()
-    return render_template("document_edit.html", flag = "edit_document", document=document[0], document_types=document_types)
+    return get_handler(id, "document")
 
-@app.route("/documents/0", methods=['GET'])
-def create_document():
-    connection = selection.Connection()
-    document_types = connection.select_document_type()
-    return render_template("document_edit.html", flag = "create_document", document_types=document_types)
-
+@app.route("/families/<int:id>", methods=['GET'])
+def get_family(id):
+    return get_handler(id, "family")
 
 @app.route("/persons/<int:id>", methods=['GET'])
-def get_person(id : int):
-    connection = selection.Connection()
-    args = request.args.to_dict()
-    flags = {"person": "edit_person" if id > 0 else "create_person"}
-    person_context = get_person_context(id, args, flags, connection)
-    return render_template("person_edit.html", flags=flags, person_context=person_context)
+def get_person(id):
+    return get_handler(id, "person")
 
 """
 POST LOGIC
@@ -106,18 +113,26 @@ class PostHandler:
         raise "ERROR OF HANDLER"
     
     def add_person_to_family(self):
-        self.connection.insert_family_person(self.data["edit_family"], self.data["add_person_to_family"])
+        self.connection.add_family_person(self.data["edit_family"], self.data["add_person_to_family"])
         self.args.pop('person_action')
 
+    def create_family(self):
+        self.data["edit_family"] = self.connection.create_family(self.data)
+
     def create_person(self):
-        self.data['person_id'] = self.connection.create_person(self.data)
+        self.data['edit_person'] = self.connection.create_person(self.data)
         if "edit_family" in self.data:
-            self.connection.insert_family_person(self.data["edit_family"], self.data['person_id'])
+            self.connection.add_family_person(self.data["edit_family"], self.data['edit_person'], self.data['role'])
             self.args.pop('person_action')
-            self.args["edit_person"] = f"{self.data['person_id']}"
+            self.args["edit_person"] = f"{self.data['edit_person']}"
+    
+    def edit_family(self):
+        self.connection.update_family(self.data["edit_family"], self.data)
 
     def edit_person(self):
         self.connection.update_person(self.data["edit_person"], self.data)
+        if "edit_family" in self.data:
+            self.connection.update_role(self.data["edit_family"], self.data['edit_person'], self.data['role'])
 
     def delete_person_from_family(self):
         self.connection.delete_family_person(self.data["edit_family"], self.data["delete_person_from_family"])
@@ -133,23 +148,23 @@ class PostHandler:
         self.connection.update_dul(self.data["edit_person"], self.data["set_dul"])
 
     def create_document(self):
-        self.data["edit_document"] = self.connection.add_document(self.data)
+        self.data["edit_document"] = self.connection.create_document(self.data)
         if "edit_person" in self.data:
             self.connection.add_person_document(self.data["edit_person"], self.data["edit_document"])
-            self.args.pop('edit_document')
+            self.args.pop('doc_action')
 
     def edit_document(self):
         self.connection.update_document(self.data["edit_document"], self.data)
 
 
-def post_handler(id : int, single : str, mult: str):
+def post_handler(id : int, mult : str, single: str):
     connection = selection.Connection()
     args = request.args.to_dict()
     data = request.form.to_dict()
     data.update(args)
     data[single] = id
-    print(args)
-    print(data)
+    #print(args)
+    #print(data)
     id = PostHandler(data, args, connection).handle(data['action'])
     return redirect(f"/{mult}/{id}?{args_to_request(args)}")
 

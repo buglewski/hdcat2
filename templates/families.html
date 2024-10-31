@@ -2,6 +2,11 @@
 
 {% block title %}Группы заявителей{% endblock %}
 
+{% block bar %}
+<h2> Меню: </h2>
+<div><a href = "/families/0"> Создать новую группу </a> </div>
+{% endblock %}
+
 {% block content %}
 {{ family_list('', families) }}
 {% endblock %}

@@ -1,78 +1,89 @@
+{% from '_macros_lists.html' import doc_list, family_list, person_list  %}
 
-{% macro doc_list(documents, flag='') -%}
-<table>
+{% macro doc_list(documents, flags = {}, ref = '') -%}
+{{ flags }}
+<table width="100%">
         {% for document in documents %}
+        {% set document_id = document['document.id'] %}
         <tr>
                 <td>
-                <form action="/documents/{{document[0]}}" target="_blank">
+                <form action="/documents/{{document_id}}" target="_blank">
                         <button>Открыть</button>
                 </form>
-                {% if flag=='edit_person' %}
+                
+                {% if flags.person=='edit_person' and flags.document!='add_document' %}
                 <form method="post">
                         <input type="hidden"  name="action" value="delete_document_from_person" />
-                        <input type="hidden"  name="delete_document_from_person" value="{{document[0]}}" />
+                        <input type="hidden"  name="delete_document_from_person" value="{{document_id}}" />
                         <input type="submit" value = "Удалить"></button>
                 </form>
-                <input type="button" value="Ред." onclick="location.href='?edit_document={{document[0]}}';">
+                <input type="button" value="Ред." onclick="location.href='?{{ ref }}&edit_document={{document_id}}';">
                 <form method="post">
                         <input type="hidden"  name="action" value="set_dul" />
-                        <input type="hidden"  name="set_dul" value="{{document[0]}}" />
+                        <input type="hidden"  name="set_dul" value="{{document_id}}" />
                         <input type="submit" value = "ДУЛ"></button>
                 </form>
-                </td>
                 {% endif %}
-                {% if flag=='add_document' %}
+                {% if flags.document=='add_document' %}
                 <form method="post">
                         <input type="hidden"  name="action" value="add_document" />
-                        <input type="hidden"  name="add_document" value="{{document[0]}}" />
+                        <input type="hidden"  name="add_document" value="{{document_id}}" />
                         <input type="submit" value = "Выбрать"></button>
                 </form>
                 {% endif %}
-
-                {% for item in document %}
-                        <td> {{item}} </td>
+                </td>
+                <td> {{loop.index}} </td>
+                {% for item in ['document_type.name', 'document.name', 'document.series', 'document.number', 'document.issuer', 'document.issue_date'] %}
+                        <td> {{document[item]}} </td>
                 {% endfor %}
         </tr>
         {% endfor %}
 </table>
 {%- endmacro %}
 
-{% macro edit_doc(document_types,  flag='', document = [''] * 50) -%}
+{% macro edit_doc(document_types,  flags={}, document = {}) -%}
 
-{% set document_id = 0 if flag == 'create_document' else documnt[0] %}
+{% set document_id = 0 if flags.document == 'create_document' else document['document.id'] %}
+{{ flags }}
 
 <h1> Документ </h1>
 <form method="post" id="general">
-        <input type="hidden"  name="action" value="{{ flag }}" />
-        <input type="hidden"  name="{{ flag }}" value=" {{ document_id }}" />
+        <input type="hidden"  name="action" value="{{ flags.document }}" />
+        <input type="hidden"  name="{{ flags.document }}" value="{{ document_id }}" />
+
         <div>
-                <label for="typename" class="form-label">Тип документа:</label>
-                <select name = "typename" selected ="{{ document[1] }}">
+                <label for="type_id" class="form-label">Тип документа:</label>
+                <select name = "type_id" selected ="{{ document['document_type.name'] }}">
                         {% for t in document_types %}
-                        <option value="{{ t[1] }}" {% if t[1]==document[1] %} selected="selected" {% endif %}> {{ t[1] }}  </option>
+                        <option value="{{ t['document_type.id'] }}" 
+                                {% if flags.document != 'create_document' and t['document_type.id']==document['document.type_id'] %} 
+                                        selected="selected" 
+                                {% endif %}> 
+                        {{ t['document_type.name'] }}  
+                        </option>
                         {% endfor %}
                 </select>
         </div>
         <div>
                 <label for="lastname" class="form-label">Наименование:</label>
-                <input type="text"  name="name" value = "{{ document[2] }}">
+                <input type="text"  name="name" value = "{{ document['document.name'] }}">
 
                 <label for="series" class="form-label">Серия:</label>
-                <input type="text"  name="series" value = "{{ document[3] }}">
+                <input type="text"  name="series" value = "{{ document['document.series'] }}">
 
                 <label for="number" class="form-label">Номер:</label>
-                <input type="text"  name="number"  value = "{{ document[4] }}">
+                <input type="text"  name="number"  value = "{{ document['document.number'] }}">
         </div>
         <div><label for="issuer" class="form-label">Выдан:</label></div>
-        <div><textarea name = "issuer" rows = 2 cols = 100>{{ document[5] }}</textarea> </div>
+        <div><textarea name = "issuer" rows = 2 cols = 100>{{ document['document.issuer'] }}</textarea> </div>
         <div>
                 <label for="issue_date" class="form-label">Дата выдачи:</label> 
-                <input type="date"  name="issue_date" value = "{{ document[6] }}">
+                <input type="date"  name="issue_date" value = "{{ document['document.issue_date'] }}">
         </div>
         <div><label for="comment" class="form-label">Комментарий:</label> </div>
-        <div><textarea name = "comment" rows = 2 cols = 100>{{ document[7] }}</textarea></div>
+        <div><textarea name = "comment" rows = 2 cols = 100>{{ document['document.comment'] }}</textarea></div>
         <div><label for="attributes" class="form-label">Атрибуты:</label> </div>
-        <div><textarea name = "attributes" rows = 2 cols = 100>{{ document[9] }}</textarea> </div>
+        <div><textarea name = "attributes" rows = 2 cols = 100>{{ document['document.attributes'] }}</textarea> </div>
         <input type="submit"></button>
 </form>
 
@@ -100,6 +111,12 @@
 
         <label for="birthdate" class="form-label">Дата рождения:</label>
         <input type="date"  name="birthdate" value = "{% if flags.person!=create_person %}{{ person['person.birthdate'] }}{% endif %}">
+        
+        {% if flags.family == "edit_family" %}
+        <label for="role" class="form-label">Роль:</label>
+        <input type="text"  name="role" value = "{% if flags.person!=create_person %}{{ person['family_person.role'] }}{% endif %}">
+        {% endif %}
+
         <input type="submit"></button>
         {% if flags.person!="edit_person" %} </fieldset> {% endif %}
 </form>
@@ -122,18 +139,18 @@
 
 {% endif %}
 
-<h1> Документы </h1>
-{{ doc_list(context.documents, 'edit_person') }}
-
 {% set ref = ""%}
 {% if flags.family=="edit_family" %}
 {% set ref = "edit_person=" + person['person.id']|string %}
 {% endif %}
 
+<h1> Документы </h1>
+{{ doc_list(context.documents, flags, ref) }}
+
 {% if 'document' not in flags %}
 
 <input type="button" value="Добавить существующий документ" onclick="location.href='?{{ ref }}&doc_action=add_document';"> 
-<input type="button" value="Добавить новый документ" onclick="location.href='?{{ ref }}&edit_document=0';">
+<input type="button" value="Добавить новый документ" onclick="location.href='?{{ ref }}&doc_action=create_document';">
 
 {% else %}
 
@@ -142,17 +159,22 @@
 {% endif %}
 
 {% if flags.document=="add_document" %}
-{{ doc_list(context.document_list, flags.document) }}
+
+{{ doc_list(context.all_document, flags) }}
 {% endif %}
 
 {% if flags.document=="create_document" %}
-{{ edit_doc(context.document_types, flags.document) }}
+{{ edit_doc(context.document_types, flags) }}
 {% endif %}
 
 {% if flags.document=="edit_document" %}
-{{ edit_doc(context.document_types, flags.document, context.document_to_edit) }}
+{{ edit_doc(context.document_types, flags, context.document_to_edit) }}
 {% endif %}
 
+{% if flags.family!="edit_family" %}
+<h1> Список связанных групп заявителей </h1>
+{{ family_list(flag='', families=context.linked_families) }}
+{% endif %}
 {% endif %}
 {%- endmacro %}
 
