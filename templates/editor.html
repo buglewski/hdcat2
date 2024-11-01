@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+
+{% block title %}Редактор{% endblock %}
+
+{% block bar %}
+
+<h1> Меню </h1>
+
+<a href="javascript:void(0)" onclick="window.location.reload()">Обновить</a>
+
+{% endblock %}
+
+{% block content %}
+
+{{ context.family.persons }}
+
+{# РЕДАКТОР СЕМЕЙ #}
+{% if 'create_family' in args or 'edit_family' in args %} 
+
+{% set action = 'create_family' if 'create_family' in args else 'edit_family' %}
+
+    <div class="edit_box">
+
+    <form method="post" name="edit_family">
+        <input type="hidden"  name="action" value="{{action}}" />
+
+        <label for="type_id" class="form-label">Тип Семьи:</label>
+        <select name = "type_id">
+                {% for t in context.family.family_types.values() %}
+                <option value="{{ t['family_type.id'] }}" 
+                    {% if 'edit_family' in args and t['family_type.id']==context.family.family['family.type_id'] %} 
+                    selected="selected" 
+                    {% endif %}> 
+                    {{ t['family_type.name'] }}  
+                </option>
+                {% endfor %}
+        </select>
+        <input type="submit"></button>
+    </form>
+
+    {# ПЕРСОНЫ ВНУТРИ СЕМЬИ #}
+    {% if 'edit_family' in args %} 
+
+    <h1> Члены группы заявителей </h1>
+    <table width = "100%">
+        {% for person in context.family.persons.values() %}
+        <tr>
+            <td> 
+                {% set person_id = person['person.id'] %}
+                <form method="post" class="btn_form" action="?edit_family={{ args.edit_family }}&delete_person_from_family={{ person_id }}">
+                    <input type="hidden"  name="action" value="delete_person_from_family" />
+                    <input type="submit" value = "Искл."></button>
+                </form>
+                <input type="button" value="Ред." onclick="location.href='?edit_family={{ args.edit_family }}&edit_person={{person_id}}';">
+            </td>
+            <td>
+                {{loop.index}} 
+            </td>
+            <td> 
+                <a href="/editor?edit_person={{person['person.id']}}">
+                    {{person['person.lastname']}} 
+                    {{person['person.firstname']}} 
+                    {{person['person.secondname']}} 
+                    {% if person['family_person.role'] != '' %} ({{ person['family_person.role']}}) {% endif %}
+                </a> 
+            </td>
+            <td> {{ person['person.birthdate'] }} </td>
+            <td> <a href="/editor?edit_document={{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> </td>
+            <td> {{ person['passport.issuer'] }} </td>
+            <td> {{ person['passport.issue_date'] }} </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <input type="button" value="Добавить существующую персону" onclick="location.href='?edit_family={{ args.edit_family }}&add_person_to_family';"> 
+    <input type="button" value="Добавить новую персону" onclick="location.href='?edit_family={{ args.edit_family }}&create_person';">
+
+    {% endif %} 
+    {# КОНЕЦ ПЕРСОН ВНУТРИ СЕМЬИ #}
+
+    </div>
+{% endif %} 
+{# КОНЕЦ РЕДАКТОРА СЕМЕЙ #}
+
+{# ДОБАВЛЯТЕЛЬ ПЕРСОН #}
+{% if 'add_person_to_family' in args %} 
+
+    <input type="button" value="Закрыть" onclick="location.href='?edit_family={{ args.edit_family }}';"> 
+
+    <table width = "100%">
+        {% for person in context.person.all_persons.values() %}
+        <tr>
+            <td> 
+                {% set person_id = person['person.id'] %}
+                <form method="post" class="btn_form" action = "?edit_family={{ args.edit_family }}&add_person_to_family={{person_id}}">
+                    <input type="hidden"  name="action" value="add_person_to_family" />
+                    <input type="submit" value = "Выбрать"></button>
+                </form>
+            </td>
+            <td>
+                {{loop.index}} 
+            </td>
+            <td> 
+                <a href="/editor?edit_person={{person['person.id']}}">
+                    {{person['person.lastname']}} 
+                    {{person['person.firstname']}} 
+                    {{person['person.secondname']}} 
+                </a> 
+            </td>
+            <td> {{ person['person.birthdate'] }} </td>
+            <td> <a href="/editor?edit_person={{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> </td>
+            <td> {{ person['passport.issuer'] }} </td>
+            <td> {{ person['passport.issue_date'] }} </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+{% endif %}
+{# КОНЕЦ ДОБАВЛЯТЕЛЬ ПЕРСОН #}
+
+{# РЕДАКТОР ПЕРСОН #}
+{% if 'create_person' in args or 'edit_person' in args %} 
+
+    {% set ref = "edit_family=" + args.edit_family|string if "edit_family" in args else "" %}
+
+    {% if 'edit_family' in args  %}
+    <input type="button" value="Закрыть" onclick="location.href='?edit_family={{ args.edit_family }}';"> 
+    {% endif %}
+
+    {% set person = {} if 'create_person' in args else context.person.person %}
+    {% set action = 'create_person' if 'create_person' in args else 'edit_person' %}
+
+    <div class="edit_box">
+    <h1> Персональные данные </h1>
+
+    <form method="post" id="general">
+        <input type="hidden"  name="action" value="{{action}}" />
+        
+        <label for="lastname" class="form-label">Фамилия:</label>
+        <input type="text"  name="lastname" value = "{% if 'edit_person' in args %}{{ person['person.lastname'] }}{% endif %}">
+
+        <label for="firstname" class="form-label">Имя:</label>
+        <input type="text"  name="firstname" value = "{% if 'edit_person' in args %}{{ person['person.firstname'] }}{% endif %}">
+
+        <label for="secondname" class="form-label">Отчество:</label>
+        <input type="text"  name="secondname"  value = "{% if 'edit_person' in args %}{{ person['person.secondname'] }}{% endif %}">
+
+        <label for="birthdate" class="form-label">Дата рождения:</label>
+        <input type="date"  name="birthdate" value = "{% if 'edit_person' in args %}{{ person['person.birthdate'] }}{% endif %}">
+            
+        {% if "edit_family" in args %}
+        <label for="role" class="form-label">Роль:</label>
+        <input type="text"  name="role" value = "{% if 'edit_person' in args %}{{ context.family.persons[person['person.id']]['family_person.role'] }}{% endif %}">
+        {% endif %}
+
+        <input type="submit"></button>
+    </form>
+
+    {% if 'edit_person' in args  %}
+    <div>
+        <h1> Документ удостоверяющий личность </h1>
+
+        {% if person['person.passport_id'] == 0 %}
+
+        <div> Не обнаружен. </div>
+
+        {% else %}
+
+        <div> Тип: {{ person['passport_type.name'] }} </div>
+        <div> Серия: {{ person['passport.series'] }} </div>
+        <div> Номер: {{ person['passport.number'] }} </div>
+        <div> Выдан: {{ person['passport.issuer'] }} </div>
+        <div> Дата выдачи: {{ person['passport.issue_date'] }} </div>
+
+        {% endif %}
+
+        
+        <h1> Документы </h1>
+        <table width="100%">
+            {% for document in context.person.documents.values() %}
+            {% set document_id = document['document.id'] %}
+            <tr>
+                <td>
+                    <form action="/editor?edit_document={{document_id}}" target="_blank" class="btn_form">
+                            <button>Открыть</button>
+                    </form>
+                    
+                    <form method="post" class="btn_form" action="?{{ ref }}&edit_person={{ args.edit_person }}&delete_document_from_person={{document_id}}">
+                        <input type="hidden"  name="action" value="delete_document_from_person" />
+                        <input type="submit" value = "Удалить"></button>
+                    </form>
+                    <input type="button" value="Ред." onclick="location.href='?{{ ref }}&edit_person={{ args.edit_person }}&edit_document={{document_id}}';">
+                    <form method="post" class="btn_form" action="?{{ ref }}&edit_person={{ args.edit_person }}&set_dul={{document_id}}">
+                        <input type="hidden"  name="action" value="set_dul" />    
+                        <input type="submit" value = "ДУЛ"></button>
+                    </form>
+                </td>
+                <td> {{loop.index}} </td>
+                {% for item in ['document_type.name', 'document.name', 'document.series', 'document.number', 'document.issuer', 'document.issue_date'] %}
+                        <td> {{document[item]}} </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+
+        <input type="button" value="Добавить существующий документ" onclick="location.href='?{{ ref }}&edit_person={{args.edit_person}}&add_document';"> 
+        <input type="button" value="Добавить новый документ" onclick="location.href='?{{ ref }}&edit_person={{args.edit_person}}&create_document';">
+
+    </div>
+
+    {% endif %}
+
+    </div>
+
+{% endif %}
+{# КОНЕЦ РЕДАКТОРА ПЕРСОН #}
+
+{# ДОБАВЛЯТЕЛЬ ДОКУМЕНТОВ #}
+
+{% if 'add_document' in args %} 
+
+    <input type="button" value="Закрыть" onclick="location.href='?{{ ref }}&edit_person={{ args.edit_person }}';"> 
+
+    <table width="100%">
+        {% for document in context.document.all_documents.values() %}
+        {% set document_id = document['document.id'] %}
+        <tr>
+                <td>
+                <form action="/editor?edit_document={{document_id}}" target="_blank" class="btn_form">
+                        <button>Открыть</button>
+                </form>
+                
+                <form method="post" class="btn_form" action="?{{ ref }}&edit_person={{ args.edit_person }}&add_document={{document_id}}">
+                    <input type="hidden"  name="action" value="add_document" />    
+                    <input type="submit" value = "Выбрать"></button>
+                </form>
+
+            </td>
+                <td> {{loop.index}} </td>
+                {% for item in ['document_type.name', 'document.name', 'document.series', 'document.number', 'document.issuer', 'document.issue_date'] %}
+                        <td> {{document[item]}} </td>
+                {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+
+
+{% endif %}
+{# КОНЕЦ ДОБАВЛЯТЕЛЬ ДОКУМЕНТОВ #}
+
+{# РЕДАКТОР ДОКУМЕНТОВ #}
+{% if "edit_document" in args or "create_document" in args %}
+<div class="edit_box">
+    <h1> Документ </h1>
+    {% set document = context.document.document if 'create_document' not in args else "" %}
+    {% set action = 'create_document' if 'create_document' in args else "edit_document" %}
+    <form method="post" id="general">
+        <input type="hidden"  name="action" value="{{action}}" />    
+        <div>
+            <label for="type_id" class="form-label">Тип документа:</label>
+            <select name = "type_id">
+                {% for t in context.document.document_types.values() %}
+                <option value="{{ t['document_type.id'] }}" 
+                    {% if 'create_document' not in args and t['document_type.id']==document['document.type_id'] %} 
+                        selected="selected" 
+                    {% endif %}> 
+                    {{ t['document_type.name'] }}  
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+         <div>
+        <label for="lastname" class="form-label">Наименование:</label>
+        <input type="text"  name="name" value = "{{ document['document.name'] }}">
+
+        <label for="series" class="form-label">Серия:</label>
+        <input type="text"  name="series" value = "{{ document['document.series'] }}">
+
+        <label for="number" class="form-label">Номер:</label>
+        <input type="text"  name="number"  value = "{{ document['document.number'] }}">
+        </div>
+        <div><label for="issuer" class="form-label">Выдан:</label></div>
+        <div><textarea name = "issuer" rows = 2 cols = 100>{{ document['document.issuer'] }}</textarea> </div>
+        <div>
+            <label for="issue_date" class="form-label">Дата выдачи:</label> 
+            <input type="date"  name="issue_date" value = "{{ document['document.issue_date'] }}">
+        </div>
+        <div><label for="comment" class="form-label">Комментарий:</label> </div>
+        <div><textarea name = "comment" rows = 2 cols = 100>{{ document['document.comment'] }}</textarea></div>
+        <div><label for="attributes" class="form-label">Атрибуты:</label> </div>
+        <div><textarea name = "attributes" rows = 2 cols = 100>{{ document['document.attributes'] }}</textarea> </div>
+        <input type="submit"></button>
+    </form>
+</div>
+{% endif %}
+{# КОНЕЦ РЕДАКТОР ДОКУМЕНТОВ #}
+
+{% endblock %}

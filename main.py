@@ -81,27 +81,58 @@ def get_persons():
     persons = connection.select_persons()
     return render_template("persons.html", persons=persons)
 
-
-
-def get_handler(id: int, name: str):
+@app.route("/editor", methods=['GET'])
+def editor():
     connection = selection.Connection()
-    args = request.args.to_dict()
-    flags = {f"{name}": f"edit_{name}" if id > 0 else f"create_{name}"}
-    context = getattr(GetHandler(), f"get_{name}_context")(id, args, flags, connection)
-    print(context)
-    return render_template(f"{name}_edit.html", flags = flags, context=context)
+    args = request.args
+    context = {}
+    print(args)
+    if 'create_family' in args: 
+        context['family'] = { 'family_types' : connection.select_family_types() }
+    elif 'edit_family' in args: 
+        family_id = int(args["edit_family"])
+        print("HERE!")
+        context['family'] = {
+            'persons': connection.select_persons_of_family(family_id=family_id),
+            'family': connection.select_families(family_id=family_id)[family_id],
+            'family_types' : connection.select_family_types()
+        }
+    else: context['family'] = {}
 
-@app.route("/documents/<int:id>", methods=['GET'])
-def get_document(id):
-    return get_handler(id, "document")
+    if "create_person" in args: 
+        context['person'] = {}
+    elif "edit_person" in args:
+        person_id = int(args["edit_person"])
+        context['person'] = {
+            "person" : connection.select_persons(person_id=person_id)[person_id],
+            "documents" : connection.select_documents_of_person(person_id=person_id),
+            "linked_families" : connection.select_families_with_persons(person_id=person_id),
+            "document_types": connection.select_document_type()
+        }
+    elif "add_person_to_family" in args:
+        context['person'] = { 
+            "all_persons": connection.select_persons()  
+        }
+    else: context['person'] = {}
 
-@app.route("/families/<int:id>", methods=['GET'])
-def get_family(id):
-    return get_handler(id, "family")
+    if 'create_document' in args: 
+        context['document'] = { "document_types" : connection.select_document_type() }
+    elif 'edit_document' in args:
+        document_id = int(args['edit_document'])
+        context['document'] = {
+            "document": connection.select_documents(document_id)[document_id],
+            "document_types" : connection.select_document_type(),
+            "persons_of_document": connection.select_persons_of_document(document_id)
+        }
+    elif "add_document" in args:
+        context['document'] = { 
+            "all_documents": connection.select_documents()  
+        }
+    else: context['document'] = { }
+    #print(args)
+    #print(context)
+    return render_template("editor.html", args = args, context=context)
 
-@app.route("/persons/<int:id>", methods=['GET'])
-def get_person(id):
-    return get_handler(id, "person")
 
 """
 POST LOGIC
@@ -114,81 +145,57 @@ class PostHandler:
         self.args = args
     def handle(self, request : str):
         getattr(self, request)()
-        if "edit_family" in self.data:
-            return self.data["edit_family"]
-        if "edit_person" in self.data:
-            return self.data["edit_person"]
-        if "edit_document" in self.data:
-            return self.data["edit_document"]
-        raise "ERROR OF HANDLER"
+        self.args.pop(request)
     
     def add_person_to_family(self):
-        self.connection.add_family_person(self.data["edit_family"], self.data["add_person_to_family"])
-        self.args.pop('person_action')
+        self.connection.add_family_person(self.args["edit_family"], self.args["add_person_to_family"])
 
     def create_family(self):
-        self.data["edit_family"] = self.connection.create_family(self.data)
+        self.args["edit_family"] = self.connection.create_family(self.data)
 
     def create_person(self):
-        self.data['edit_person'] = self.connection.create_person(self.data)
-        if "edit_family" in self.data:
-            self.connection.add_family_person(self.data["edit_family"], self.data['edit_person'], self.data['role'])
-            self.args.pop('person_action')
-            self.args["edit_person"] = f"{self.data['edit_person']}"
+        self.args['edit_person'] = self.connection.create_person(self.data)
+        if "edit_family" in self.args:
+            self.connection.add_family_person(self.args["edit_family"], self.args['edit_person'], self.data['role'])
     
     def edit_family(self):
-        self.connection.update_family(self.data["edit_family"], self.data)
+        self.connection.update_family(self.args["edit_family"], self.data)
 
     def edit_person(self):
-        self.connection.update_person(self.data["edit_person"], self.data)
-        if "edit_family" in self.data:
-            self.connection.update_role(self.data["edit_family"], self.data['edit_person'], self.data['role'])
+        self.connection.update_person(self.args["edit_person"], self.data)
+        if "edit_family" in self.args:
+            self.connection.update_role(self.args["edit_family"], self.args['edit_person'], self.data['role'])
 
     def delete_person_from_family(self):
-        self.connection.delete_family_person(self.data["edit_family"], self.data["delete_person_from_family"])
+        self.connection.delete_family_person(self.args["edit_family"], self.args["delete_person_from_family"])
 
     def add_document(self):
-        self.connection.add_person_document(self.data["edit_person"], self.data["add_document"])
-        self.args.pop('doc_action')
+        self.connection.add_person_document(self.args["edit_person"], self.args["add_document"])
 
     def delete_document_from_person(self):
-        self.connection.delete_person_document(self.data["edit_person"], self.data["delete_document_from_person"])
+        self.connection.delete_person_document(self.args["edit_person"], self.args["delete_document_from_person"])
 
     def set_dul(self):
-        self.connection.update_dul(self.data["edit_person"], self.data["set_dul"])
+        self.connection.update_dul(self.args["edit_person"], self.args["set_dul"])
 
     def create_document(self):
-        self.data["edit_document"] = self.connection.create_document(self.data)
-        if "edit_person" in self.data:
-            self.connection.add_person_document(self.data["edit_person"], self.data["edit_document"])
-            self.args.pop('doc_action')
+        self.args["edit_document"] = self.connection.create_document(self.data)
+        if "edit_person" in self.args:
+            self.connection.add_person_document(self.args["edit_person"], self.args["edit_document"])
 
     def edit_document(self):
-        self.connection.update_document(self.data["edit_document"], self.data)
+        self.connection.update_document(self.args["edit_document"], self.data)
 
 
-def post_handler(id : int, mult : str, single: str):
+@app.route("/editor", methods=['POST'])
+def post_editor():
     connection = selection.Connection()
     args = request.args.to_dict()
     data = request.form.to_dict()
-    data.update(args)
-    data[single] = id
-    #print(args)
-    #print(data)
-    id = PostHandler(data, args, connection).handle(data['action'])
-    return redirect(f"/{mult}/{id}?{args_to_request(args)}")
-
-@app.route("/families/<int:id>", methods=['POST'])
-def edit_family(id):
-    return post_handler(id, "families", "edit_family")
-
-@app.route("/persons/<int:id>", methods=['POST'])
-def edit_person(id):
-    return post_handler(id, "persons","edit_person")
-
-@app.route("/documents/<int:id>", methods=['POST'])
-def edit_document(id):
-    return post_handler(id, "documents", "edit_document")
+    print("POST: ", request.args)
+    print("POST: ", request.form)
+    PostHandler(data, args, connection).handle(data['action'])
+    return redirect(f"/editor?{args_to_request(args)}")
 
 
 if __name__ == '__main__':

@@ -1,11 +1,11 @@
 {% macro doc_list(documents, flags = {}, ref = '') -%}
 {{ flags }}
 <table width="100%">
-        {% for document in documents %}
+        {% for document in documents.values() %}
         {% set document_id = document['document.id'] %}
         <tr>
                 <td>
-                <form action="/documents/{{document_id}}" target="_blank">
+                <form action="/editor?edit_document={{document_id}}" target="_blank">
                         <button>Открыть</button>
                 </form>
                 
@@ -42,11 +42,11 @@
 {% macro family_list(flag = '', families = []) -%}
 <table>
     
-        {% for family in families %}
+        {% for family in families.values() %}
         <tr>
                 <td> {{ loop.index }} </td>
                 <td> 
-                        <form action="/families/{{ family['family.id'] }}" target="_blank">
+                        <form action="/editor?edit_family={{ family['family.id'] }}" target="_blank">
                                 <button>Открыть</button>
                         </form>
                 </td>
@@ -61,7 +61,7 @@
 {% macro house_list(houses = {}) -%}
 <table width = "100%">
     
-        {% for house in houses %}
+        {% for house in houses.values() %}
         <tr>
                 <td> {{ loop.index }} </td>
                 <td> 
@@ -77,7 +77,7 @@
                 <td> {{ house['house.flat'] }} </td>
                 <td> {{ house['house.area'] }} </td>
                 <td>
-                {% for status in house['statuses'] %}                        
+                {% for status in house.statuses.values() %}                        
                         {% if status['house_status.actual'] %}
                         <div>
                         {{ status['house_status_type.name'] }} с {{ status['house_status.date_of_status'] }}
@@ -86,10 +86,10 @@
                 {% endfor %}
                 </td>
                 <td>
-                {% for person in house['persons'] %}
+                {% for person in house.persons.values() %}
                         {% if person['person_house_relation.actual'] %} 
                         <div>
-                        <a href="{{ person[person.id]}}">
+                        <a href="editor?edit_person={{person['person.id']}}">
                         {{ person['person.lastname'] }} {{ person['person.firstname'] }} {{ person['person.secondname'] }} ({{ person['person.birthdate'] }}) 
                         - {{ person['person_house_relation_type.name'] }}
                         {% if person['person_house_relation.date_of_start'] != None %} с {{ person['person_house_relation.date_of_start'] }} {% endif %}
@@ -107,7 +107,7 @@
 {% macro person_list(flags = ['details'], persons = []) -%}
 <table width = "100%">
     
-        {% for person in persons %}
+        {% for person in persons.values() %}
         <tr>
                 <td {% if 'details' not in flags %} width="5%" {% endif %}> 
                         {% if 'choose' in flags %}
@@ -131,7 +131,7 @@
                         {% endif %}
                 </td>
                 <td {% if 'details' not in flags %} width="60%" {% endif %}> 
-                        <a href="/persons/{{person['person.id']}}">
+                        <a href="/editor?edit_person={{person['person.id']}}">
                                 {{person['person.lastname']}} 
                                 {{person['person.firstname']}} 
                                 {{person['person.secondname']}} 
@@ -142,7 +142,7 @@
                         {{ person['person.birthdate'] }} 
                 </td>
                 <td {% if 'details' not in flags %} width="20%" {% endif %}> 
-                        <a href="/documents/{{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> 
+                        <a href="/editor?edit_document={{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> 
                 </td>
                 {% if 'details' in flags %}
                 <td> {{ person['passport.issuer'] }} </td>

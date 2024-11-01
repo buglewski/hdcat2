@@ -1,10 +1,11 @@
 import sqlite3
 
 def selection_to_dict(selection : str, data: list):
-    ans = []
+    ans = {}
     keys = selection.replace(',', '').split()
     for row in data:
-        ans.append(dict(zip(keys, row)))
+        ans[row[0] ] = dict(zip(keys, row))
+    #print(ans)
     return ans
 
 class Connection:
@@ -67,8 +68,8 @@ class Connection:
 
         self.cursor.execute(request, (person_id, )) if int(person_id) > 0 else self.cursor.execute(request)
         family_list = selection_to_dict(selection, self.cursor.fetchall())
-        for family in family_list:
-            family["persons"] = (self.select_persons_of_family(family["family.id"]))
+        for family_id, family in family_list.items():
+            family["persons"] = (self.select_persons_of_family(family_id))
         return family_list
     
     def select_family_types(self):
@@ -87,9 +88,9 @@ class Connection:
     
     def select_houses_expand(self):
         houses = self.select_houses()
-        for house in houses:
-            house["statuses"] = self.select_house_statuses(house["house.id"])
-            house["persons"] = self.select_persons_of_house(house["house.id"])
+        for house_id, house in houses.items():
+            house["statuses"] = self.select_house_statuses(house_id)
+            house["persons"] = self.select_persons_of_house(house_id)
         print(houses)
         return houses
     

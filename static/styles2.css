@@ -10,6 +10,12 @@ html, body, div, span, h1, h2, h3, h4, h5, h6, p, a, ul, li{
     font-size: 100%;
     vertical-align: baseline;
 }
+
+h1 {
+    padding: 5px 0 5px 0;
+    font-size: large;
+}
+
 body {
     font-family: Arial;    
     background-color: #f0eeee;
@@ -72,7 +78,7 @@ body {
 #sidebar1 {
     float: left;
     width: 10%; 
-    padding: 0 10px 0 20px;
+    padding: 10px 10px 10px 20px;
 }
 #sidebar2 {
     float: right;
@@ -119,6 +125,14 @@ table {
     border: 1px solid grey;
  }
  
+ .btn_form { display: inline-block; }
+
+ .edit_box {
+    background-color: #ffffff;
+    border: 1px solid #726e61;
+    padding: 5px 5px 5px 5px;
+ }
+
 /*
 #nav ul, #header h1, .wrapper, #footer p {
     max-width: 1200px;
