@@ -20,10 +20,11 @@ class GetHandler:
             'family': connection.select_families(family_id=family_id)[0],
             'family_types' : connection.select_family_types()
         }
-        if "person_action" in args:
-            if args["person_action"] == "add_person_to_family":
-                family_context['all_persons'] = connection.select_persons()
-            flags["person"] = args["person_action"]
+        if "add_person_to_family" in args:
+            family_context['all_persons'] = connection.select_persons()
+            flags["person"] = "add_person_to_family"
+        if "create_person" in args:
+            flags["person"] = "create_person"
         if "edit_person" in args:
             flags["person"] = "edit_person"
             family_context['person_context'] = self.get_person_context(args['edit_person'], args, flags, connection)
@@ -38,10 +39,11 @@ class GetHandler:
             "linked_families" : connection.select_families_with_persons(person_id=person_id),
             "document_types": connection.select_document_type()
         }
-        if "doc_action" in args:
-            if args["doc_action"] == "add_document":
-                person_context["all_document"] = connection.select_documents()
-            flags['document'] = args["doc_action"]
+        if "add_document" in args:
+            person_context["all_document"] = connection.select_documents()
+            flags['document'] = "add_document"
+        if "create_document" in args:
+            flags['document'] = "create_document"
         if "edit_document" in args:
             flags['document'] = "edit_document"
             person_context["document_to_edit"] = connection.select_documents(args["edit_document"])[0]
