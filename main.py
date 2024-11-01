@@ -53,6 +53,13 @@ def args_to_request(args : dict):
         ans += f"{key}={value}&"
     return ans
 
+@app.route("/documents", methods=['GET'])
+def get_documents():
+    connection = selection.Connection()
+    documents = connection.select_documents()
+    print(documents)
+    return render_template("documents.html", documents=documents)
+
 @app.route("/", methods=['GET'])
 def get_families():
     connection = selection.Connection()
@@ -60,18 +67,19 @@ def get_families():
     #print(families)
     return render_template("families.html", families=families)
 
+@app.route("/houses", methods=['GET'])
+def get_houses():
+    connection = selection.Connection()
+    houses = connection.select_houses_expand()
+    return render_template("houses.html", houses=houses)
+
 @app.route("/persons", methods=['GET'])
 def get_persons():
     connection = selection.Connection()
     persons = connection.select_persons()
     return render_template("persons.html", persons=persons)
 
-@app.route("/documents", methods=['GET'])
-def get_documents():
-    connection = selection.Connection()
-    documents = connection.select_documents()
-    print(documents)
-    return render_template("documents.html", documents=documents)
+
 
 def get_handler(id: int, name: str):
     connection = selection.Connection()

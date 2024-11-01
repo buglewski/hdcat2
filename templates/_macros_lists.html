@@ -58,6 +58,51 @@
 
 {%- endmacro %}
 
+{% macro house_list(houses = {}) -%}
+<table width = "100%">
+    
+        {% for house in houses %}
+        <tr>
+                <td> {{ loop.index }} </td>
+                <td> 
+                        <form action="/houses/{{ house['house.id'] }}" target="_blank">
+                                <button>Открыть</button>
+                        </form>
+                </td>
+                <td> {{ house['house.region']}} </td>
+                <td> {{ house['house.city'] }} </td>
+                <td> {{ house['house.prefix'] }} </td>
+                <td> {{ house['house.street'] }} </td>
+                <td> {{ house['house.house'] }} </td>
+                <td> {{ house['house.flat'] }} </td>
+                <td> {{ house['house.area'] }} </td>
+                <td>
+                {% for status in house['statuses'] %}                        
+                        {% if status['house_status.actual'] %}
+                        <div>
+                        {{ status['house_status_type.name'] }} с {{ status['house_status.date_of_status'] }}
+                        </div>
+                        {% endif %}
+                {% endfor %}
+                </td>
+                <td>
+                {% for person in house['persons'] %}
+                        {% if person['person_house_relation.actual'] %} 
+                        <div>
+                        <a href="{{ person[person.id]}}">
+                        {{ person['person.lastname'] }} {{ person['person.firstname'] }} {{ person['person.secondname'] }} ({{ person['person.birthdate'] }}) 
+                        - {{ person['person_house_relation_type.name'] }}
+                        {% if person['person_house_relation.date_of_start'] != None %} с {{ person['person_house_relation.date_of_start'] }} {% endif %}
+                        </a>
+                        </div>
+                        {% endif %}
+                {% endfor %}
+                </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+{%- endmacro %}
 
 {% macro person_list(flags = ['details'], persons = []) -%}
 <table width = "100%">
