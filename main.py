@@ -115,6 +115,20 @@ def editor():
         }
     else: context['person'] = {}
 
+    if 'create_house' in args:
+        context['house'] = {}
+    elif 'edit_house' in args:
+        house_id = int(args['edit_house'])
+        context['house'] = {
+            'house': connection.select_houses(house_id)[house_id],
+            'statuses': connection.select_house_statuses(house_id),
+            'persons': connection.select_persons_of_house(house_id),
+            'documents': connection.select_documents_of_house(house_id),
+            'status_types': connection.select_house_status_types(),
+            'person_relation_types': connection.select_person_house_relation_types()
+        }
+    else: context['house'] = {}
+
     if 'create_document' in args: 
         context['document'] = { "document_types" : connection.select_document_type() }
     elif 'edit_document' in args:
@@ -129,6 +143,7 @@ def editor():
             "all_documents": connection.select_documents()  
         }
     else: context['document'] = { }
+
     #print(args)
     #print(context)
     return render_template("editor.html", args = args, context=context)
