@@ -12,8 +12,6 @@
 
 {% block content %}
 
-{{ context.family.persons }}
-
 {# РЕДАКТОР СЕМЕЙ #}
 {% if 'create_family' in args or 'edit_family' in args %} 
 
@@ -108,7 +106,7 @@
                 </a> 
             </td>
             <td> {{ person['person.birthdate'] }} </td>
-            <td> <a href="/editor?edit_person={{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> </td>
+            <td> <a href="/editor?edit_document={{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> </td>
             <td> {{ person['passport.issuer'] }} </td>
             <td> {{ person['passport.issue_date'] }} </td>
         </tr>
@@ -158,14 +156,15 @@
 
     {% if 'edit_person' in args  %}
     <div>
-        <h1> Документ удостоверяющий личность </h1>
-
+        <div><b> Документ удостоверяющий личность </b></div>
+        
         {% if person['person.passport_id'] == 0 %}
 
         <div> Не обнаружен. </div>
 
         {% else %}
 
+        <div> Имя: {{ person['passport.name'] }} </div>
         <div> Тип: {{ person['passport_type.name'] }} </div>
         <div> Серия: {{ person['passport.series'] }} </div>
         <div> Номер: {{ person['passport.number'] }} </div>
@@ -174,6 +173,31 @@
 
         {% endif %}
 
+        <div> <b> Адрес регистрации: </b>
+        {% if person['person.house_reg_id'] == 0 %}
+
+        Не обнаружен.
+
+        {% else %}
+
+        {{person['house_r.region']}}, {{ person['house_r.city']}}, 
+        {{person['house_r.prefix']}} {{person['house_r.street']}} {{person['house_r.house']}}-{{person['house_r.flat']}}
+
+        {% endif %}
+        </div>
+
+        <div> <b> Адрес фактического проживания: </b>
+        {% if person['person.house_res_id'] == 0 %}
+    
+        Не обнаружен.
+    
+        {% else %}
+    
+        {{person['house_f.region']}}, {{ person['house_f.city']}},
+        {{person['house_f.prefix']}} {{person['house_f.street']}} {{person['house_f.house']}}-{{person['house_f.flat']}}
+            
+        {% endif %}
+        </div>
         
         <h1> Документы </h1>
         <table width="100%">
@@ -207,30 +231,335 @@
         <input type="button" value="Добавить новый документ" onclick="location.href='?{{ ref }}&edit_person={{args.edit_person}}&create_document';">
 
     </div>
+    <h1> Связанные жилые помещения </h1>
+    <table width="100%">
+        {% for house in context.person.houses.values() %}
+        <tr> 
+            <td>
+            <form method="post" class="btn_form" action="?{{ ref }}&edit_person={{ args.edit_person }}&delete_house_from_person={{house['person_house_relation.id']}}">
+                <input type="hidden"  name="action" value="delete_house_from_person" />
+                <input type="submit" value = "Удалить"></button>
+            </form>
+            <form method="post" class="btn_form" action="?{{ ref }}&edit_person={{ args.edit_person }}&set_reg={{house['house.id']}}">
+                <input type="hidden"  name="action" value="set_reg" />    
+                <input type="submit" value = "Рег."></button>
+            </form>
+            <form method="post" class="btn_form" action="?{{ ref }}&edit_person={{ args.edit_person }}&set_fact={{house['house.id']}}">
+                <input type="hidden"  name="action" value="set_fact" />    
+                <input type="submit" value = "Факт."></button>
+            </form>
+            <form method="post" action="?{{ ref }}&edit_person={{ args.edit_person }}&edit_person_house_relation={{house['person_house_relation.id']}}">
+            <input type="hidden"  name="action" value="edit_person_house_relation" />
+            <td>
+                <a href="editor?edit_house={{house['house.id']}}">
+                {{ house['house.region'] }}, {{ house['house.city'] }}, {{ house['house.prefix'] }} {{ house['house.street'] }}
+                {{ house['house.house'] }}-{{ house['house.flat'] }} 
+                </a> 
+            </td>
+            <td>
+                <label for="type_id" class="form-label">Статус:</label>
+                <select name = "type_id">
+                    {% for t in context.person.house_relation_types.values() %}
+                    <option value="{{ t['person_house_relation_type.id'] }}" 
+                        {% if t['person_house_relation_type.id']==house['person_house_relation.type_id'] %} 
+                            selected="selected" 
+                        {% endif %}> 
+                    {{ t['person_house_relation_type.name'] }}  
+                    </option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <label for="date_of_start" class="form-label">С момента:</label>
+                <input type="date"  name="date_of_start" value = "{{ house['person_house_relation.date_of_start']  }}">
+
+            </td>
+            <td>
+                <select name = "actual">
+                    <option value="1" 
+                        {% if  house['person_house_relation.actual'] == '1' %} selected="selected" {% endif %}> Актуально
+                    </option>
+                    <option value="0" 
+                        {% if house['person_house_relation.actual'] == '0' %} selected="selected" {% endif %}> Неактуально
+                    </option>
+                </select>
+            </td>
+            <td>
+                <label for="date_of_finish" class="form-label">До момента:</label>
+                <input type="date"  name="date_of_finish" value = "{{ house['person_house_relation.date_of_finish']  }}">
+
+            </td>
+            <td>
+                <input type="submit"></button>
+            </td>
+            </form>   
+        </tr>
+        {% endfor %}
+    </table>
+    <input type="button" value="Добавить существующее ж/п" onclick="location.href='?{{ ref }}&edit_person={{args.edit_person}}&add_person_house_relation';"> 
+    <input type="button" value="Добавить новое ж/п" onclick="location.href='?{{ ref }}&edit_person={{args.edit_person}}&create_house';">
+    
+    {% if 'add_person_house_relation' in args %}
+        <input type="button" value="Закрыть" onclick="location.href='?{{ ref }}&edit_person={{args.edit_person}}';"> 
+    
+        <table width = "100%">
+            {% for house in context.house.all_houses.values() %}
+            <tr>
+                <td> 
+                    {% set house_id = house['house.id'] %}
+                    <form method="post" class="btn_form" action = "?{{ ref }}&edit_person={{args.edit_person}}&add_person_house_relation={{house_id}}">
+                        <input type="hidden"  name="action" value="add_person_house_relation" />
+                        <input type="submit" value = "Выбрать"></button>
+                    </form>
+                </td>
+                <td>
+                    {{loop.index}} 
+                </td>
+                <td> 
+                    <a href="editor?edit_house={{house['house.id']}}">
+                        {{ house['house.region'] }}, {{ house['house.city'] }}, {{ house['house.prefix'] }} {{ house['house.street'] }}
+                        {{ house['house.house'] }}-{{ house['house.flat'] }} 
+                    </a> 
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
 
     {% endif %}
 
-    </div>
+</div>
 
 {% endif %}
 {# КОНЕЦ РЕДАКТОРА ПЕРСОН #}
+
+
+{# РЕДАКТОР ДОМОВ #}
+{% if "edit_house" in args or "create_house" in args %}
+<div class="edit_box">
+    <h1> Дом </h1>
+    {% set house = context.house.house if 'create_house' not in args else {} %}
+    {% set action = 'create_house' if 'create_house' in args else "edit_house" %}
+    <form method="post" id="general">
+        <input type="hidden"  name="action" value="{{action}}" />
+        <div>
+        <label for="region" class="form-label">Регион:</label>
+        <input type="text"  name="region" value = "{% if 'edit_house' in args %}{{ house['house.region'] }} {% else %}Алтайский Край{% endif %}">
+
+        <label for="city" class="form-label">Город:</label>
+        <input type="text"  name="city" value = "{% if 'edit_house' in args %}{{ house['house.city'] }} {% else %}г. Бийск{% endif %}">
+        </div>
+        <div>
+        <label for="prefix" class="form-label">Префикс:</label>
+        <input type="text"  name="prefix"  value = "{% if 'edit_house' in args %}{{ house['house.prefix'] }}{% endif %}">
+
+        <label for="street" class="form-label">Улица:</label>
+        <input type="text"  name="street"  value = "{% if 'edit_house' in args %}{{ house['house.street'] }}{% endif %}">
+        
+        <label for="house" class="form-label">Дом:</label>
+        <input type="text"  name="house"  value = "{% if 'edit_house' in args %}{{ house['house.house'] }}{% endif %}">
+
+        <label for="flat" class="form-label">Квартира:</label>
+        <input type="text"  name="flat"  value = "{% if 'edit_house' in args %}{{ house['house.flat'] }}{% endif %}">
+
+        <label for="area" class="form-label">Площадь:</label>
+        <input type="text"  name="area" value = "{% if 'edit_house' in args %}{{ house['house.area'] }}{% endif %}">
+        </div>
+        <div><label for="comment" class="form-label">Комментарий:</label> </div>
+        <div><textarea name = "comment" rows = 2 cols="100">{% if 'edit_house' in args %}{{ house['house.comment'] }}{% endif %}</textarea></div>
+        <input type="submit"></button>
+    </form>
+
+    {% if "edit_house" in args %}
+    <div>
+        <h1> Статусы </h1>
+        {% for status in context.house.statuses.values() %}                        
+        <div>
+            {{ status['house_status_type.name'] }} с {{ status['house_status.date_of_status'] }}
+            {% if status['house_status.actual'] == '1' %} актуален {% else %} по {{ status['house_status.date_of_cancel']}} {% endif %}
+            ( {{ status['house_status.comment'] }} ) - <a href="?edit_house={{ house['house.id'] }}&edit_status_of_house={{ status['house_status.id'] }}">Ред.</a>
+        </div>
+        {% endfor %}
+        <input type="button" value="Добавить Новый статус" onclick="location.href='?edit_house={{args.edit_house}}&add_status_of_house';"> 
+        
+        {% if 'add_status_of_house' in args or 'edit_status_of_house' in args%}
+        <input type="button" value="Закрыть" onclick="location.href='?edit_house={{args.edit_house}}';"> 
+        <div clas="edit_box">
+            {% set action = 'add_status_of_house' if 'add_status_of_house' in args else "edit_status_of_house" %}
+            {% set status = context.house.statuses[args.edit_status_of_house|int] if 'add_status_of_house' not in args else {} %}
+            {{ status }}
+            <form method="post" id="general">
+                <input type="hidden"  name="action" value="{{action}}" />
+                <div>
+                <label for="type_id" class="form-label">Статус:</label>
+                <select name = "type_id">
+                    {% for t in context.house.status_types.values() %}
+                    <option value="{{ t['house_status_type.id'] }}" 
+                        {% if 'edit_status_of_house' in args and t['house_status_type.id']==status['house_status.type_id'] %} 
+                            selected="selected" 
+                        {% endif %}> 
+                    {{ t['house_status_type.name'] }}  
+                    </option>
+                    {% endfor %}
+                </select>
+                <label for="date_of_status" class="form-label">Дата статуса:</label>
+                <input type="date"  name="date_of_status" value = "{{ status['house_status.date_of_status']  }}">
+                <select name = "actual">
+                    <option value="1" 
+                        {% if 'edit_status_of_house' in args and status['house_status.actual'] == '1' %} selected="selected" {% endif %}> Актуально
+                    </option>
+                    <option value="0" 
+                        {% if 'edit_status_of_house' in args and status['house_status.actual'] == '0' %} selected="selected" {% endif %}> Неактуально
+                    </option>
+                </select>
+                <label for="date_of_cancel" class="form-label">Дата снятия статуса:</label>
+                <input type="date"  name="date_of_cancel" value = "{% if 'edit_status_of_house' in args %}{{ status['house_status.date_of_cancel'] }}{% endif %}">
+                </div>
+                <div><label for="comment" class="form-label">Комментарий:</label> </div>
+                <div><textarea name = "comment" rows = 2 cols="100">{% if 'edit_status_of_house' in args %}{{ status['house_status.comment'] }}{% endif %}</textarea></div>
+                <input type="submit"></button>
+            </form>
+        </div>
+        {% endif %}
+
+        <h1> Связанные персоны </h1>
+        <table width="100%">
+            {% for key, person in context.house.persons.items() %}
+            <tr> 
+                <form method="post" action="?edit_house={{ args.edit_house }}&edit_person_house_relation={{person['person_house_relation.id']}}">
+                <input type="hidden"  name="action" value="edit_person_house_relation" />
+                <td>
+                    <a href="editor?edit_person={{person['person.id']}}">
+                    {{ person['person.lastname'] }} {{ person['person.firstname'] }} {{ person['person.secondname'] }}
+                    </a> 
+                </td>
+                <td> {{ person['person.birthdate'] }} </td>
+                <td> <a href="/editor?edit_document={{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> </td>
+                <td>
+                    <label for="type_id" class="form-label">Статус:</label>
+                    <select name = "type_id">
+                        {% for t in context.house.person_relation_types.values() %}
+                        <option value="{{ t['person_house_relation_type.id'] }}" 
+                            {% if t['person_house_relation_type.id']==person['person_house_relation.type_id'] %} 
+                                selected="selected" 
+                            {% endif %}> 
+                        {{ t['person_house_relation_type.name'] }}  
+                        </option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <label for="date_of_start" class="form-label">С момента:</label>
+                    <input type="date"  name="date_of_start" value = "{{ person['person_house_relation.date_of_start']  }}">
+
+                </td>
+                <td>
+                    <select name = "actual">
+                        <option value="1" 
+                            {% if  person['person_house_relation.actual'] %} selected="selected" {% endif %}> Актуально
+                        </option>
+                        <option value="0" 
+                            {% if not person['person_house_relation.actual'] %} selected="selected" {% endif %}> Неактуально
+                        </option>
+                    </select>
+                </td>
+                <td>
+                    <label for="date_of_finish" class="form-label">До момента:</label>
+                    <input type="date"  name="date_of_finish" value = "{{ person['person_house_relation.date_of_finish']  }}">
+
+                </td>
+                <td>
+                    <input type="submit"></button>
+                </td>
+                </form>   
+            </tr>
+            {% endfor %}
+        </table>
+
+        <input type="button" value="Добавить существующую персону" onclick="location.href='?edit_house={{args.edit_house}}&add_person_house_relation';"> 
+
+
+        {% if 'add_person_house_relation' in args %}
+        <input type="button" value="Закрыть" onclick="location.href='?edit_house={{args.edit_house}}';"> 
+    
+        <table width = "100%">
+            {% for person in context.person.all_persons.values() %}
+            <tr>
+                <td> 
+                    {% set person_id = person['person.id'] %}
+                    <form method="post" class="btn_form" action = "?edit_house={{args.edit_house}}&add_person_house_relation={{person_id}}">
+                        <input type="hidden"  name="action" value="add_person_house_relation" />
+                        <input type="submit" value = "Выбрать"></button>
+                    </form>
+                </td>
+                <td>
+                    {{loop.index}} 
+                </td>
+                <td> 
+                    <a href="/editor?edit_person={{person['person.id']}}">
+                        {{person['person.lastname']}} 
+                        {{person['person.firstname']}} 
+                        {{person['person.secondname']}} 
+                    </a> 
+                </td>
+                <td> {{ person['person.birthdate'] }} </td>
+                <td> <a href="/editor?edit_document={{person['person.passport_id']}}"> {{person['passport.series']}} {{person['passport.number']}} </a> </td>
+                <td> {{ person['passport.issuer'] }} </td>
+                <td> {{ person['passport.issue_date'] }} </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+    
+        <div>
+            <h1>Документы</h1>
+            <table width="100%">
+                {% for document in context.house.documents.values() %}
+                {% set document_id = document['document.id'] %}
+                <tr>
+                    <td>                    
+                        <form method="post" class="btn_form" action="?edit_house={{ args.edit_house }}&delete_document_from_house={{document_id}}">
+                            <input type="hidden"  name="action" value="delete_document_from_house" />
+                            <input type="submit" value = "Удалить"></button>
+                        </form>
+                        <input type="button" value="Ред." onclick="location.href='?edit_house={{ args.edit_house }}&edit_document={{document_id}}';">
+                    </td>
+                    <td> {{loop.index}} </td>
+                    {% for item in ['document_type.name', 'document.name', 'document.series', 'document.number', 'document.issuer', 'document.issue_date'] %}
+                            <td> {{document[item]}} </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        <input type="button" value="Добавить существующий документ" onclick="location.href='?edit_house={{args.edit_house}}&add_document';"> 
+        <input type="button" value="Добавить новый документ" onclick="location.href='?edit_house={{args.edit_house}}&create_document';">
+    </div>
+    {% endif %}
+
+</div>
+{% endif %}
+{# КОНЕЦ РЕДАКТОР ДОМОВ #}
 
 {# ДОБАВЛЯТЕЛЬ ДОКУМЕНТОВ #}
 
 {% if 'add_document' in args %} 
 
-    <input type="button" value="Закрыть" onclick="location.href='?{{ ref }}&edit_person={{ args.edit_person }}';"> 
+    {% set ref = 'edit_family='+args.edit_family|string if 'edit_family' in args else "" %}
+    {% set ref = ref + '&edit_person='+args.edit_person|string if 'edit_person' in args else ref + "" %}
+    {% set ref = ref + '&edit_house='+args.edit_house|string if 'edit_house' in args else ref + "" %}
+
+    <input type="button" value="Закрыть" onclick="location.href='?{{ ref }}';"> 
 
     <table width="100%">
         {% for document in context.document.all_documents.values() %}
+        
         {% set document_id = document['document.id'] %}
         <tr>
                 <td>
-                <form action="/editor?edit_document={{document_id}}" target="_blank" class="btn_form">
-                        <button>Открыть</button>
-                </form>
+                <input type="button" value="Открыть" onclick="location.href='/editor?edit_document={{document_id|string}}';"> 
                 
-                <form method="post" class="btn_form" action="?{{ ref }}&edit_person={{ args.edit_person }}&add_document={{document_id}}">
+                <form method="post" class="btn_form" action="?{{ ref }}&add_document={{document_id}}">
                     <input type="hidden"  name="action" value="add_document" />    
                     <input type="submit" value = "Выбрать"></button>
                 </form>
@@ -248,11 +577,12 @@
 {% endif %}
 {# КОНЕЦ ДОБАВЛЯТЕЛЬ ДОКУМЕНТОВ #}
 
+
 {# РЕДАКТОР ДОКУМЕНТОВ #}
 {% if "edit_document" in args or "create_document" in args %}
 <div class="edit_box">
     <h1> Документ </h1>
-    {% set document = context.document.document if 'create_document' not in args else "" %}
+    {% set document = context.document.document if 'create_document' not in args else {} %}
     {% set action = 'create_document' if 'create_document' in args else "edit_document" %}
     <form method="post" id="general">
         <input type="hidden"  name="action" value="{{action}}" />    

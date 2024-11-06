@@ -42,6 +42,20 @@ class Connection:
         result = selection_to_dict(selection, self.cursor.fetchall())
         return result
     
+    def select_documents_of_house(self, house_id = 0):
+        selection = """document.id, document.type_id, document_type.name, document.name, document.series, document.number,
+                        document.issuer, document.issue_date, document.comment, document.file, document.attributes"""
+        
+        request = f"""SELECT {selection} FROM document
+                    JOIN document_type on document.type_id = document_type.id
+                    JOIN house_document on house_document.document_id = document.id
+                    WHERE house_document.house_id = ?
+                    ORDER BY document.id DESC"""
+        self.cursor.execute(request, (house_id, ))
+        result = selection_to_dict(selection, self.cursor.fetchall())
+        print(result)
+        return result
+    
     def select_document_type(self):
         selection = "document_type.id, document_type.name"
         self.cursor.execute(f"""SELECT {selection} from document_type""")
@@ -94,6 +108,18 @@ class Connection:
         print(houses)
         return houses
     
+    def select_houses_of_person(self, person_id):
+        selection = "house.id, house.region, house.city, house.prefix, house.street, house.house, house.flat, house.area, house.comment, "\
+                    "person_house_relation.id, person_house_relation.type_id, person_house_relation_type.name, "\
+                    "person_house_relation.actual, person_house_relation.attribute, person_house_relation.date_of_start, person_house_relation.date_of_finish"
+        request = f"SELECT {selection} FROM house "\
+                    "JOIN person_house_relation ON person_house_relation.house_id = house.id "\
+                    "JOIN person_house_relation_type ON person_house_relation_type.id = person_house_relation.type_id "\
+                    "WHERE person_house_relation.person_id = ? "\
+                    "ORDER BY house.region, house.city, house.street, house.house, house.flat"
+        self.cursor.execute(request, (person_id, ))
+        return selection_to_dict(selection, self.cursor.fetchall())
+    
     def select_house_statuses(self, house_id = 0):
         selection = "house_status.id, house_status.house_id, house_status.type_id, house_status_type.name, "\
                     "house_status.date_of_status, house_status.actual, house_status.date_of_cancel, house_status.comment"
@@ -102,20 +128,26 @@ class Connection:
                     "WHERE house_status.house_id = ?"
         self.cursor.execute(request, (house_id, ))
         return selection_to_dict(selection, self.cursor.fetchall())
+    
+    def select_house_status_types(self):
+        selection = "house_status_type.id, house_status_type.name"
+        request =  f"SELECT {selection} FROM house_status_type "
+        self.cursor.execute(request)
+        return selection_to_dict(selection, self.cursor.fetchall())
         
     def select_persons(self, person_id : int = 0):
         selection = """person.id, person.lastname, person.firstname, person.secondname, person.birthdate,
-                        person.passport_id, passport.type_id, passport_type.name, passport.series, passport.number, passport.issuer, passport.issue_date,
-                        person.house_reg_id, house_r.prefix, house_r.street, house_r.house, house_r.flat,
-                        person.house_res_id, house_f.prefix, house_f.street, house_f.house, house_f.flat"""
+                        person.passport_id, passport.type_id, passport_type.name, passport.name, passport.series, passport.number, passport.issuer, passport.issue_date,
+                        person.house_reg_id, house_r.region, house_r.city, house_r.prefix, house_r.street, house_r.house, house_r.flat,
+                        person.house_res_id, house_f.region, house_f.city, house_f.prefix, house_f.street, house_f.house, house_f.flat"""
         
         request = f"""SELECT
                     {selection}
                     FROM person
                     LEFT JOIN document AS passport ON passport.id = person.passport_id
                     LEFT JOIN document_type AS passport_type ON passport_type.id = passport.type_id
-                    LEFT JOIN house AS house_f ON person.house_reg_id = house_f.id
-                    LEFT JOIN house AS house_r ON person.house_res_id = house_r.id
+                    LEFT JOIN house AS house_r ON person.house_reg_id = house_r.id
+                    LEFT JOIN house AS house_f ON person.house_res_id = house_f.id
                     {"WHERE person.id = ?" if int(person_id) > 0 else ""}
                     ORDER BY person.id DESC;"""
         
@@ -155,25 +187,48 @@ class Connection:
     def select_persons_of_house(self, house_id):
         selection = "person.id, person.lastname, person.firstname, person.secondname, person.birthdate, "\
                     "person.passport_id, passport.series, passport.number, passport.issuer, passport.issue_date, "\
-                    "person_house_relation.house_id, person_house_relation.relation_id, person_house_relation_type.name, "\
+                    "person_house_relation.id, "\
+                    "person_house_relation.house_id, person_house_relation.type_id, person_house_relation_type.name, "\
                     "person_house_relation.actual, person_house_relation.attribute, person_house_relation.date_of_start, person_house_relation.date_of_finish"
         
         self.cursor.execute(f"""SELECT {selection} FROM person
                             LEFT JOIN document AS passport ON passport.id = person.passport_id
                             JOIN person_house_relation ON person.id = person_house_relation.person_id
-                            JOIN person_house_relation_type ON person_house_relation_type.id = person_house_relation.relation_id
+                            JOIN person_house_relation_type ON person_house_relation_type.id = person_house_relation.type_id
                             WHERE person_house_relation.house_id = ? """, 
                             (house_id, ))
         result = self.cursor.fetchall()
         return selection_to_dict(selection, result)
     
+    def select_person_house_relation_types(self):
+        selection = "person_house_relation_type.id, person_house_relation_type.name"
+        request =  f"SELECT {selection} FROM person_house_relation_type "
+        self.cursor.execute(request)
+        return selection_to_dict(selection, self.cursor.fetchall())
+    
     def add_family_person(self, family_id, person_id, role = ''):
         self.cursor.execute(f"""insert or ignore into family_person(family_id, person_id, role) VALUES (?, ?, ?)""", (family_id, person_id, role))
+        self.connection.commit()
+
+    def add_house_document(self, house_id, document_id):
+        self.cursor.execute(f"""insert or ignore into house_document(document_id, house_id) VALUES (?, ?)""", (document_id, house_id))
         self.connection.commit()
     
     def add_person_document(self, person_id, document_id):
         self.cursor.execute(f"""insert or ignore into person_document(document_id, person_id) VALUES (?, ?)""", (document_id, person_id))
         self.connection.commit()
+
+    def add_person_house(self, person_id, house_id):
+        self.cursor.execute(f"""insert or ignore into person_house_relation(house_id, person_id) VALUES (?, ?)""", (house_id, person_id))
+        self.connection.commit()
+
+    def create_document(self, data):
+        self.cursor.execute(f"""INSERT INTO document(type_id, name, series, number, issuer, issue_date, attributes, comment) VALUES
+                            (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", 
+                            (data['type_id'], data['name'], data['series'], data['number'], data['issuer'], data['issue_date'], data['attributes'], data['comment']))
+        id = self.cursor.fetchone()[0]
+        self.connection.commit()
+        return id
 
     def create_family(self, data):
         self.cursor.execute("""INSERT INTO family(type_id) VALUES (?) RETURNING id""", data['type_id'])
@@ -181,10 +236,18 @@ class Connection:
         self.connection.commit()
         return id
     
-    def create_document(self, data):
-        self.cursor.execute(f"""INSERT INTO document(type_id, name, series, number, issuer, issue_date, attributes, comment) VALUES
+    def create_house(self, data):
+        self.cursor.execute(f"""INSERT INTO house(region, city, prefix, street, house, flat, area, comment) VALUES
                             (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", 
-                            (data['type_id'], data['name'], data['series'], data['number'], data['issuer'], data['issue_date'], data['attributes'], data['comment']))
+                            (data['region'], data['city'], data['prefix'], data['street'], data['house'], data['flat'], data['area'], data['comment']))
+        id = self.cursor.fetchone()[0]
+        self.connection.commit()
+        return id
+    
+    def create_house_status(self, house_id, data):
+        self.cursor.execute(f"""INSERT INTO house_status(house_id, type_id, date_of_status, actual, date_of_cancel, comment) VALUES 
+                            (?, ?, date(?), ?, date(?), ?) RETURNING id """, 
+                            (house_id, data['type_id'], data['date_of_status'], data['actual'], data['date_of_cancel'], data['comment']))
         id = self.cursor.fetchone()[0]
         self.connection.commit()
         return id
@@ -196,6 +259,10 @@ class Connection:
         id = self.cursor.fetchone()[0]
         self.connection.commit()
         return id
+    
+    def delete_house_document(self, house_id, document_id):
+        self.cursor.execute("""DELETE FROM house_document WHERE document_id =? AND house_id = ?""", (document_id, house_id))
+        self.connection.commit()
     
     def delete_person_document(self, person_id, document_id):
         self.cursor.execute("""DELETE FROM person_document WHERE document_id =? AND person_id = ?""", (document_id, person_id))
@@ -216,8 +283,28 @@ class Connection:
         self.cursor.execute("""UPDATE person SET passport_id = ? WHERE id=?""", (document_id, person_id))
         self.connection.commit()
 
+    def update_reg(self, person_id, house_id):
+        self.cursor.execute("""UPDATE person SET house_reg_id = ? WHERE id=?""", (house_id, person_id))
+        self.connection.commit()
+
+    def update_fact(self, person_id, house_id):
+        self.cursor.execute("""UPDATE person SET house_res_id = ? WHERE id=?""", (house_id, person_id))
+        self.connection.commit()
+
     def update_family(self, family_id, data):
         self.cursor.execute("""UPDATE family SET type_id = ? WHERE id=?""", (data['type_id'], family_id))
+        self.connection.commit()
+
+    def update_house(self, house_id, data):
+        self.cursor.execute(f"""UPDATE house SET region = ?, city = ?, prefix = ?, street = ?, house = ?, flat = ?, area = ?, comment = ?
+                            WHERE id=?""", 
+                            (data['region'], data['city'], data['prefix'], data['street'], data['house'], data['flat'], data['area'], data['comment'], house_id))
+        self.connection.commit()
+
+    def update_house_status(self, id, data):
+        self.cursor.execute(f"""UPDATE house_status SET type_id=?, date_of_status=?, actual=?, date_of_cancel=?, comment = ?
+                            WHERE id=?""", 
+                            (data['type_id'], data['date_of_status'], data['actual'], data['date_of_cancel'], data['comment'], id))
         self.connection.commit()
 
     def update_person(self, person_id, data):
@@ -228,6 +315,13 @@ class Connection:
                     birthdate = date('{data["birthdate"]}')
                     WHERE id={person_id}""")
         self.connection.commit()
+
+    def update_person_house_relation(self, id, data):
+        self.cursor.execute(f"""UPDATE person_house_relation SET type_id=?, date_of_start=date(?), actual=?, date_of_finish=date(?)
+                            WHERE id=?""", 
+                            (data['type_id'], data['date_of_start'], data['actual'], data['date_of_finish'], id))
+        self.connection.commit()
+    
 
     def update_role(self, family_id, person_id, role):
         self.cursor.execute("""UPDATE family_person SET role = ? WHERE family_id=? AND person_id=?""", (role, family_id, person_id))

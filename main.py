@@ -3,52 +3,6 @@ import selection
 
 app = Flask(__name__)
 
-class GetHandler:
-    def get_document_context(self, document_id : int, args : dict, flags : dict, connection : selection.Connection):
-        if flags['document'] == 'create_document': return { "document_types" : connection.select_document_type() }
-        document_context = {
-            "document": connection.select_documents(document_id)[0],
-            "document_types" : connection.select_document_type(),
-            "persons_of_document": connection.select_persons_of_document(document_id)
-        }
-        return document_context
-
-    def get_family_context(self, family_id : int, args : dict, flags : dict, connection : selection.Connection):
-        if flags['family'] == 'create_family': return { 'family_types' : connection.select_family_types() }
-        family_context = {
-            'persons': connection.select_persons_of_family(family_id=family_id),
-            'family': connection.select_families(family_id=family_id)[0],
-            'family_types' : connection.select_family_types()
-        }
-        if "add_person_to_family" in args:
-            family_context['all_persons'] = connection.select_persons()
-            flags["person"] = "add_person_to_family"
-        if "create_person" in args:
-            flags["person"] = "create_person"
-        if "edit_person" in args:
-            flags["person"] = "edit_person"
-            family_context['person_context'] = self.get_person_context(args['edit_person'], args, flags, connection)
-        print(family_context)
-        return family_context
-
-    def get_person_context(self, person_id : int, args : dict, flags : dict, connection : selection.Connection):
-        if flags['person'] == 'create_person': return { "document_types": connection.select_document_type() }
-        person_context = {
-            "person" : connection.select_persons(person_id=person_id)[0],
-            "documents" : connection.select_documents_of_person(person_id=person_id),
-            "linked_families" : connection.select_families_with_persons(person_id=person_id),
-            "document_types": connection.select_document_type()
-        }
-        if "add_document" in args:
-            person_context["all_document"] = connection.select_documents()
-            flags['document'] = "add_document"
-        if "create_document" in args:
-            flags['document'] = "create_document"
-        if "edit_document" in args:
-            flags['document'] = "edit_document"
-            person_context["document_to_edit"] = connection.select_documents(args["edit_document"])[0]
-        return person_context
-
 def args_to_request(args : dict):
     ans = ''
     for key, value in args.items():
@@ -106,10 +60,12 @@ def editor():
         context['person'] = {
             "person" : connection.select_persons(person_id=person_id)[person_id],
             "documents" : connection.select_documents_of_person(person_id=person_id),
+            "houses": connection.select_houses_of_person(person_id),
+            'house_relation_types': connection.select_person_house_relation_types(),
             "linked_families" : connection.select_families_with_persons(person_id=person_id),
             "document_types": connection.select_document_type()
         }
-    elif "add_person_to_family" in args:
+    elif "add_person_to_family" in args or ("add_person_house_relation" in args and "edit_house" in args):
         context['person'] = { 
             "all_persons": connection.select_persons()  
         }
@@ -126,6 +82,10 @@ def editor():
             'documents': connection.select_documents_of_house(house_id),
             'status_types': connection.select_house_status_types(),
             'person_relation_types': connection.select_person_house_relation_types()
+        }
+    elif "add_house_to_document" in args or ("add_person_house_relation" in args and "edit_person" in args):
+        context['house'] = { 
+            "all_houses": connection.select_houses()  
         }
     else: context['house'] = {}
 
@@ -160,46 +120,88 @@ class PostHandler:
         self.args = args
     def handle(self, request : str):
         getattr(self, request)()
-        self.args.pop(request)
+        edits = ['edit_document', 'edit_family', 'edit_house', 'edit_person']
+        if request not in edits: self.args.pop(request)
     
+    def add_document(self):
+        if "edit_person" in self.args:
+            self.connection.add_person_document(self.args["edit_person"], self.args["add_document"])
+        if "edit_house" in self.args:
+            self.connection.add_house_document(self.args["edit_house"], self.args["add_document"])
+
+    def add_person_house_relation(self):
+        if 'edit_house' in self.args:
+            self.connection.add_person_house(self.args['add_person_house_relation'], self.args['edit_house'])
+        if 'edit_person' in self.args:
+            self.connection.add_person_house(self.args['edit_person'], self.args['add_person_house_relation'])
+
     def add_person_to_family(self):
         self.connection.add_family_person(self.args["edit_family"], self.args["add_person_to_family"])
 
+    def add_status_of_house(self):
+        self.connection.create_house_status(self.args['edit_house'], self.data)
+
     def create_family(self):
         self.args["edit_family"] = self.connection.create_family(self.data)
+
+    def create_house(self):
+        house_id = self.connection.create_house(self.data)
+        if 'edit_person' in self.args:
+            self.connection.add_person_house(self.args['edit_person'], house_id)
+        else:
+            self.args["edit_house"] = house_id
 
     def create_person(self):
         self.args['edit_person'] = self.connection.create_person(self.data)
         if "edit_family" in self.args:
             self.connection.add_family_person(self.args["edit_family"], self.args['edit_person'], self.data['role'])
     
+    def edit_document(self):
+        self.connection.update_document(self.args["edit_document"], self.data)
+    
     def edit_family(self):
         self.connection.update_family(self.args["edit_family"], self.data)
+
+    def edit_house(self):
+        self.connection.update_house(self.args["edit_house"], self.data)
 
     def edit_person(self):
         self.connection.update_person(self.args["edit_person"], self.data)
         if "edit_family" in self.args:
             self.connection.update_role(self.args["edit_family"], self.args['edit_person'], self.data['role'])
 
+    def edit_person_house_relation(self):
+        self.connection.update_person_house_relation(self.args["edit_person_house_relation"], self.data)
+    
+    def edit_status_of_house(self):
+        self.connection.update_house_status(self.args["edit_status_of_house"], self.data)
+
     def delete_person_from_family(self):
         self.connection.delete_family_person(self.args["edit_family"], self.args["delete_person_from_family"])
-
-    def add_document(self):
-        self.connection.add_person_document(self.args["edit_person"], self.args["add_document"])
 
     def delete_document_from_person(self):
         self.connection.delete_person_document(self.args["edit_person"], self.args["delete_document_from_person"])
 
+    def delete_document_from_house(self):
+        self.connection.delete_house_document(self.args["edit_house"], self.args["delete_document_from_house"])
+
     def set_dul(self):
         self.connection.update_dul(self.args["edit_person"], self.args["set_dul"])
+
+    def set_reg(self):
+        self.connection.update_reg(self.args["edit_person"], self.args["set_reg"])
+    
+    def set_fact(self):
+        self.connection.update_fact(self.args["edit_person"], self.args["set_fact"])
 
     def create_document(self):
         self.args["edit_document"] = self.connection.create_document(self.data)
         if "edit_person" in self.args:
             self.connection.add_person_document(self.args["edit_person"], self.args["edit_document"])
+        if "edit_house" in self.args:
+            self.connection.add_house_document(self.args["edit_house"], self.args["edit_document"])
 
-    def edit_document(self):
-        self.connection.update_document(self.args["edit_document"], self.data)
+    
 
 
 @app.route("/editor", methods=['POST'])

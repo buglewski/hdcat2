@@ -2,12 +2,10 @@
 {{ flags }}
 <table width="100%">
         {% for document in documents.values() %}
-        {% set document_id = document['document.id'] %}
+        {% set document_id = document['document.id']|string %}
         <tr>
                 <td>
-                <form action="/editor?edit_document={{document_id}}" target="_blank">
-                        <button>Открыть</button>
-                </form>
+                <input type="button" value="Открыть" onclick="location.href='/editor?edit_document={{document_id}}';">
                 
                 {% if flags.person=='edit_person' and flags.document!='add_document' %}
                 <form method="post">
@@ -46,9 +44,8 @@
         <tr>
                 <td> {{ loop.index }} </td>
                 <td> 
-                        <form action="/editor?edit_family={{ family['family.id'] }}" target="_blank">
-                                <button>Открыть</button>
-                        </form>
+                        {% set L1 = family['family.id'] %}
+                        <input type="button" value="Открыть" onclick="location.href='/editor?edit_family={{L1}}';">
                 </td>
                 <td> {{ family['family_type.name']}} </td>
                 <td> {{ person_list(['fam_list'], family['persons']) }} </td>
@@ -63,18 +60,14 @@
     
         {% for house in houses.values() %}
         <tr>
-                <td> {{ loop.index }} </td>
-                <td> 
-                        <form action="/houses/{{ house['house.id'] }}" target="_blank">
-                                <button>Открыть</button>
-                        </form>
-                </td>
+                <td>  {{ loop.index }}  </td>
                 <td> {{ house['house.region']}} </td>
                 <td> {{ house['house.city'] }} </td>
-                <td> {{ house['house.prefix'] }} </td>
-                <td> {{ house['house.street'] }} </td>
-                <td> {{ house['house.house'] }} </td>
-                <td> {{ house['house.flat'] }} </td>
+                <td>
+                        <a href="/editor?edit_house={{ house['house.id'] }}">
+                        {{ house['house.prefix'] }} {{ house['house.street'] }} {{ house['house.house'] }}-{{ house['house.flat'] }}
+                        </a>
+                </td>
                 <td> {{ house['house.area'] }} </td>
                 <td>
                 {% for status in house.statuses.values() %}                        
@@ -147,8 +140,8 @@
                 {% if 'details' in flags %}
                 <td> {{ person['passport.issuer'] }} </td>
                 <td> {{ person['passport.issue_date'] }} </td>
-                <td> <a href="/houses/{{person['person.house_reg_id']}}"> {{person['house_r.prefix']}} {{person['house_r.street']}} {{person['house_r.house']}}-{{person['house_r.flat']}} </a> </td>
-                <td> <a href="/houses/{{person['person.house_res_id']}}"> {{person['house_f.prefix']}} {{person['house_f.street']}} {{person['house_f.house']}}-{{person['house_f.flat']}} </a> </td>
+                <td> <a href="/editor?edit_house={{person['person.house_reg_id']}}"> {{person['house_r.prefix']}} {{person['house_r.street']}} {{person['house_r.house']}}-{{person['house_r.flat']}} </a> </td>
+                <td> <a href="/editor?edit_house={{person['person.house_res_id']}}"> {{person['house_f.prefix']}} {{person['house_f.street']}} {{person['house_f.house']}}-{{person['house_f.flat']}} </a> </td>
                 {% endif %}
         </tr>
         {% endfor %}
