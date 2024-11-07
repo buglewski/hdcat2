@@ -2,7 +2,10 @@ import sqlite3
 
 def selection_to_dict(selection : str, data: list):
     ans = {}
-    keys = selection.replace(',', '').split()
+    keys = selection.split(', ')
+    for i in range(len(keys)):
+        if (c:=keys[i].find("AS")) > 0:
+            keys[i] = keys[i][c+3:]
     for row in data:
         ans[row[0] ] = dict(zip(keys, row))
     #print(ans)
@@ -16,9 +19,40 @@ class Connection:
     def __del__(self):
         self.connection.close()
 
+    def select_claims(self, claim_id = 0):
+        selection = "claim.id, claim.type_id, claim_type.name, claim.cathegories, claim.family_id, claim.person_id, claim.document_id, claim.date_time, "\
+                    "claim.response_id, claim_response.name, claim.response_document_id, claim.comment"
+        
+        request = f"""SELECT {selection} FROM claim
+                    JOIN claim_type on claim.type_id = claim_type.id
+                    JOIN claim_response on claim_response.id = claim.response_id
+                    {f"WHERE claim.id = ?" if int(claim_id) > 0 else ""} 
+                    ORDER BY claim.date_time DESC"""
+        self.cursor.execute(request, (claim_id, )) if int(claim_id) > 0 else self.cursor.execute(request)
+        result = selection_to_dict(selection, self.cursor.fetchall())
+        return result
+
+    def select_claims_of_family(self, family_id = 0):
+        selection = "claim.id, claim.type_id, claim_type.name, claim.cathegories, claim.family_id, claim.person_id, claim.document_id, claim.date_time, "\
+                    "claim.response_id, claim_response.name, claim.response_document_id, claim.comment"
+        
+        request = f"""SELECT {selection} FROM claim
+                    JOIN claim_type on claim.type_id = claim_type.id
+                    JOIN claim_response on claim_response.id = claim.response_id
+                    WHERE claim.family_id = ?
+                    ORDER BY claim.date_time DESC"""
+        self.cursor.execute(request, (family_id, ))
+        result = selection_to_dict(selection, self.cursor.fetchall())
+        return result
+    
+    def select_claim_types(self):
+        selection = "claim_type.id, claim_type.name"
+        self.cursor.execute(f""" SELECT {selection} FROM claim_type""")
+        return selection_to_dict(selection, self.cursor.fetchall())
+
     def select_documents(self, document_id = 0):
-        selection = """document.id, document.type_id, document_type.name, document.name, document.series, document.number,
-                        document.issuer, document.issue_date, document.comment, document.file, document.attributes"""
+        selection = "document.id, document.type_id, document_type.name, document.name, document.series, document.number, "\
+                    "document.issuer, document.issue_date, document.comment, document.file, document.attributes"
         
         request = f"""SELECT {selection} FROM document
                     JOIN document_type on document.type_id = document_type.id
@@ -29,22 +63,22 @@ class Connection:
         return result
     
     def select_documents_of_person(self, person_id = 0):
-        selection = """document.id, document.type_id, document_type.name, document.name, document.series, document.number,
-                        document.issuer, document.issue_date, document.comment, document.file, document.attributes"""
+        selection = "document.id, document.type_id, document_type.name, document.name, document.series, document.number, "\
+                    "document.issuer, document.issue_date, document.comment, document.file, document.attributes"
         
         request = f"""SELECT {selection} FROM document
                     JOIN document_type on document.type_id = document_type.id
-                    {f"""JOIN person_document on person_document.document_id = document.id
+                    JOIN person_document on person_document.document_id = document.id
                     JOIN person on person_document.person_id = person.id 
-                    WHERE person.id = ?""" if int(person_id) > 0 else ""}
+                    WHERE person.id = ?
                     ORDER BY document.id DESC"""
-        self.cursor.execute(request, (person_id, )) if int(person_id) > 0 else self.cursor.execute(request)
+        self.cursor.execute(request, (person_id, ))
         result = selection_to_dict(selection, self.cursor.fetchall())
         return result
     
     def select_documents_of_house(self, house_id = 0):
-        selection = """document.id, document.type_id, document_type.name, document.name, document.series, document.number,
-                        document.issuer, document.issue_date, document.comment, document.file, document.attributes"""
+        selection = "document.id, document.type_id, document_type.name, document.name, document.series, document.number, "\
+                    "document.issuer, document.issue_date, document.comment, document.file, document.attributes"""
         
         request = f"""SELECT {selection} FROM document
                     JOIN document_type on document.type_id = document_type.id
@@ -72,7 +106,7 @@ class Connection:
         result = selection_to_dict(selection, self.cursor.fetchall())
         return result
     
-    def select_families_with_persons(self, person_id = 0):
+    def select_families_with_persons_and_claims(self, person_id = 0):
         selection = "family.id, family.type_id, family_type.name"
 
         request = f""" SELECT {selection} FROM family 
@@ -83,7 +117,8 @@ class Connection:
         self.cursor.execute(request, (person_id, )) if int(person_id) > 0 else self.cursor.execute(request)
         family_list = selection_to_dict(selection, self.cursor.fetchall())
         for family_id, family in family_list.items():
-            family["persons"] = (self.select_persons_of_family(family_id))
+            family["persons"] = self.select_persons_of_family(family_id)
+            family["claims"] = self.select_claims_of_family(family_id)
         return family_list
     
     def select_family_types(self):
@@ -92,20 +127,40 @@ class Connection:
         family_list = selection_to_dict(selection, self.cursor.fetchall())
         return family_list
     
-    def select_houses(self, house_id = 0):
-        selection = "house.id, house.region, house.city, house.prefix, house.street, house.house, house.flat, house.area, house.comment"
-        request = f"SELECT {selection} FROM house {"WHERE house.id=?" if int(house_id) > 0 else ""}"\
-                    "ORDER BY house.region, house.city, house.street, house.house, house.flat"
+    def select_houses(self, house_id = 0, filter : dict = {}):
+        print(filter)
+        selection = "house.id, house.region, house.city, house.prefix, house.street, house.house, house.flat, house.area, house.comment, "\
+                    "group_concat(house_status_type.name) AS house_type_list"
+        request = f"SELECT {selection} FROM house  "\
+                    "LEFT JOIN house_status ON house_status.house_id = house.id "\
+                    "LEFT JOIN house_status_type ON house_status_type.id = house_status.type_id "\
+                    "WHERE house_status.actual = '1' OR house_status.actual IS NULL "\
+                    "GROUP BY house.id "\
+                    f"{'HAVING house.id=?' if int(house_id) > 0 else ""} "\
+                    "ORDER BY house.region, house.city, house.street, house.house, house.flat "
+        r = []
+        for key, value in filter.items():
+            if value=='1':
+                r.append(f"house_type_list LIKE '%{key}%'")
+            if value=='-1':
+                r.append(f"house_type_list NOT LIKE '%{key}%'")
+        if len(r) > 0:
+            wh = ' AND '.join(r)
+            request = f"SELECT * from ({request}) WHERE {wh}"
+            print(request)
+
         self.cursor.execute(request, (house_id, )) if int(house_id) > 0 else self.cursor.execute(request)
-        return selection_to_dict(selection, self.cursor.fetchall())
+        result = selection_to_dict(selection, self.cursor.fetchall())
+        print(result)
+        return result
     
     
-    def select_houses_expand(self):
-        houses = self.select_houses()
+    def select_houses_expand(self, filter = {}):
+        houses = self.select_houses(filter=filter)
         for house_id, house in houses.items():
-            house["statuses"] = self.select_house_statuses(house_id)
-            house["persons"] = self.select_persons_of_house(house_id)
-        print(houses)
+            #house["statuses"] = self.select_house_statuses(house_id)
+            house["persons"] = self.select_persons_of_house(house_id, only_actual=True)
+        #print(houses)
         return houses
     
     def select_houses_of_person(self, person_id):
@@ -136,10 +191,10 @@ class Connection:
         return selection_to_dict(selection, self.cursor.fetchall())
         
     def select_persons(self, person_id : int = 0):
-        selection = """person.id, person.lastname, person.firstname, person.secondname, person.birthdate,
-                        person.passport_id, passport.type_id, passport_type.name, passport.name, passport.series, passport.number, passport.issuer, passport.issue_date,
-                        person.house_reg_id, house_r.region, house_r.city, house_r.prefix, house_r.street, house_r.house, house_r.flat,
-                        person.house_res_id, house_f.region, house_f.city, house_f.prefix, house_f.street, house_f.house, house_f.flat"""
+        selection = "person.id, person.lastname, person.firstname, person.secondname, person.birthdate, "\
+                    "person.passport_id, passport.type_id, passport_type.name, passport.name, passport.series, passport.number, passport.issuer, passport.issue_date, "\
+                    "person.house_reg_id, house_r.region, house_r.city, house_r.prefix, house_r.street, house_r.house, house_r.flat, "\
+                    "person.house_res_id, house_f.region, house_f.city, house_f.prefix, house_f.street, house_f.house, house_f.flat"
         
         request = f"""SELECT
                     {selection}
@@ -156,8 +211,8 @@ class Connection:
         return selection_to_dict(selection, result)
     
     def select_persons_of_document(self, document_id):
-        selection = """person.id, person.lastname, person.firstname, person.secondname, person.birthdate, 
-                        person.passport_id, passport.series, passport.number, passport.issuer, passport.issue_date"""
+        selection = "person.id, person.lastname, person.firstname, person.secondname, person.birthdate, "\
+                    "person.passport_id, passport.series, passport.number, passport.issuer, passport.issue_date"
         
         self.cursor.execute(f"""SELECT
                             {selection}
@@ -170,8 +225,8 @@ class Connection:
         return selection_to_dict(selection, result)
 
     def select_persons_of_family(self, family_id):
-        selection = """person.id, person.lastname, person.firstname, person.secondname, family_person.role, person.birthdate, 
-                        person.passport_id, passport.series, passport.number, passport.issuer, passport.issue_date"""
+        selection = "person.id, person.lastname, person.firstname, person.secondname, family_person.role, person.birthdate, "\
+                    "person.passport_id, passport.series, passport.number, passport.issuer, passport.issue_date"
         
         self.cursor.execute(f"""SELECT
                             {selection}
@@ -184,7 +239,7 @@ class Connection:
         #print(result)
         return selection_to_dict(selection, result)
     
-    def select_persons_of_house(self, house_id):
+    def select_persons_of_house(self, house_id, only_actual = False):
         selection = "person.id, person.lastname, person.firstname, person.secondname, person.birthdate, "\
                     "person.passport_id, passport.series, passport.number, passport.issuer, passport.issue_date, "\
                     "person_house_relation.id, "\
@@ -195,7 +250,7 @@ class Connection:
                             LEFT JOIN document AS passport ON passport.id = person.passport_id
                             JOIN person_house_relation ON person.id = person_house_relation.person_id
                             JOIN person_house_relation_type ON person_house_relation_type.id = person_house_relation.type_id
-                            WHERE person_house_relation.house_id = ? """, 
+                            WHERE person_house_relation.house_id = ? {" AND person_house_relation.actual = '1'" if only_actual else ""}""", 
                             (house_id, ))
         result = self.cursor.fetchall()
         return selection_to_dict(selection, result)

@@ -38,7 +38,7 @@
 {%- endmacro %}
 
 {% macro family_list(flag = '', families = []) -%}
-<table>
+<table width="100%">
     
         {% for family in families.values() %}
         <tr>
@@ -49,6 +49,15 @@
                 </td>
                 <td> {{ family['family_type.name']}} </td>
                 <td> {{ person_list(['fam_list'], family['persons']) }} </td>
+                <td>  
+                        {% for claim in family['claims'].values() %}
+                        <div>
+                                <a href="/editor?edit_family={{L1}}&edit_claim={{ claim['claim.id'] }}">
+                                {{ loop.index }}. {{ claim['claim_type.name'] }} ({{claim['claim.date_time']}}) - {{ claim['claim_response.name'] }}
+                                </a>
+                        </div>
+                        {% endfor %}
+                </td>
         </tr>
         {% endfor %}
     </table>
@@ -70,13 +79,7 @@
                 </td>
                 <td> {{ house['house.area'] }} </td>
                 <td>
-                {% for status in house.statuses.values() %}                        
-                        {% if status['house_status.actual'] %}
-                        <div>
-                        {{ status['house_status_type.name'] }} с {{ status['house_status.date_of_status'] }}
-                        </div>
-                        {% endif %}
-                {% endfor %}
+                {{ house['house_type_list'] }}
                 </td>
                 <td>
                 {% for person in house.persons.values() %}

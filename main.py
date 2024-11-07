@@ -1,5 +1,9 @@
 from flask import Flask, request, render_template, redirect
+import json
 import selection
+
+claim_file = open("claims/claims.json", 'r', encoding="UTF-8")
+claim_metadata = json.loads(claim_file.read())
 
 app = Flask(__name__)
 
@@ -19,15 +23,16 @@ def get_documents():
 @app.route("/", methods=['GET'])
 def get_families():
     connection = selection.Connection()
-    families = connection.select_families_with_persons()
+    families = connection.select_families_with_persons_and_claims()
     #print(families)
     return render_template("families.html", families=families)
 
 @app.route("/houses", methods=['GET'])
 def get_houses():
     connection = selection.Connection()
-    houses = connection.select_houses_expand()
-    return render_template("houses.html", houses=houses)
+    status_types = connection.select_house_status_types()
+    houses = connection.select_houses_expand(request.args)
+    return render_template("houses.html", houses=houses, status_types=status_types)
 
 @app.route("/persons", methods=['GET'])
 def get_persons():
@@ -41,11 +46,21 @@ def editor():
     args = request.args
     context = {}
     print(args)
+    if 'create_claim' in args: 
+        context['claim'] = { 'claim_metadata' : claim_metadata }
+    elif 'edit_claim' in args: 
+        claim_id = int(args["edit_claim"])
+        context['claim'] = {
+            'claim_metadata' : claim_metadata,
+            'claim': connection.select_claims(claim_id=claim_id)[claim_id],
+            'claim_types' : connection.select_claim_types()
+        }
+    else: context['claim'] = {}
+
     if 'create_family' in args: 
         context['family'] = { 'family_types' : connection.select_family_types() }
     elif 'edit_family' in args: 
         family_id = int(args["edit_family"])
-        print("HERE!")
         context['family'] = {
             'persons': connection.select_persons_of_family(family_id=family_id),
             'family': connection.select_families(family_id=family_id)[family_id],
@@ -62,7 +77,7 @@ def editor():
             "documents" : connection.select_documents_of_person(person_id=person_id),
             "houses": connection.select_houses_of_person(person_id),
             'house_relation_types': connection.select_person_house_relation_types(),
-            "linked_families" : connection.select_families_with_persons(person_id=person_id),
+            "linked_families" : connection.select_families_with_persons_and_claims(person_id=person_id),
             "document_types": connection.select_document_type()
         }
     elif "add_person_to_family" in args or ("add_person_house_relation" in args and "edit_house" in args):

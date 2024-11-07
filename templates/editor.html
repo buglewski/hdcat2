@@ -456,10 +456,10 @@
                 <td>
                     <select name = "actual">
                         <option value="1" 
-                            {% if  person['person_house_relation.actual'] %} selected="selected" {% endif %}> Актуально
+                            {% if  person['person_house_relation.actual'] == '1' %} selected="selected" {% endif %}> Актуально
                         </option>
                         <option value="0" 
-                            {% if not person['person_house_relation.actual'] %} selected="selected" {% endif %}> Неактуально
+                            {% if person['person_house_relation.actual'] == '0' %} selected="selected" {% endif %}> Неактуально
                         </option>
                     </select>
                 </td>
@@ -624,5 +624,14 @@
 </div>
 {% endif %}
 {# КОНЕЦ РЕДАКТОР ДОКУМЕНТОВ #}
+
+{# РЕДАКТОР КЛАЙМОВ #}
+{% if 'edit_claim' in args or 'create_claim' in args %}
+<div>
+
+</div>
+{% endif %}
+{# КОНЕЦ РЕДАКТОРА КЛАЙМОВ #}
+
 
 {% endblock %}
