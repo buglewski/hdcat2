@@ -1,4 +1,6 @@
 from flask import Flask, request, render_template, redirect
+from werkzeug.datastructures import ImmutableMultiDict 
+
 import json
 import selection
 
@@ -27,6 +29,12 @@ def get_families():
     #print(families)
     return render_template("families.html", families=families)
 
+@app.route("/claims", methods=['GET'])
+def get_claims():
+    connection = selection.Connection()
+    claims = connection.select_claims_with_families()
+    return render_template("claims.html", claims=claims)
+
 @app.route("/houses", methods=['GET'])
 def get_houses():
     connection = selection.Connection()
@@ -47,13 +55,17 @@ def editor():
     context = {}
     print(args)
     if 'create_claim' in args: 
-        context['claim'] = { 'claim_metadata' : claim_metadata }
+        context['claim'] = { 
+            'claim_types' : connection.select_claim_types(),
+            'claim_metadata' : claim_metadata 
+        }
     elif 'edit_claim' in args: 
         claim_id = int(args["edit_claim"])
         context['claim'] = {
             'claim_metadata' : claim_metadata,
             'claim': connection.select_claims(claim_id=claim_id)[claim_id],
-            'claim_types' : connection.select_claim_types()
+            'claim_types' : connection.select_claim_types(),
+            'claim_responses' : connection.select_claim_responses()
         }
     else: context['claim'] = {}
 
@@ -64,7 +76,8 @@ def editor():
         context['family'] = {
             'persons': connection.select_persons_of_family(family_id=family_id),
             'family': connection.select_families(family_id=family_id)[family_id],
-            'family_types' : connection.select_family_types()
+            'family_types' : connection.select_family_types(),
+            'claims': connection.select_claims_of_family(family_id=family_id)
         }
     else: context['family'] = {}
 
@@ -129,13 +142,13 @@ POST LOGIC
 """
 
 class PostHandler:
-    def __init__(self, data: dict, args : dict = {}, connection : selection.Connection = selection.Connection()):
+    def __init__(self, data: ImmutableMultiDict, args : dict = {}, connection : selection.Connection = selection.Connection()):
         self.data = data
         self.connection = connection
         self.args = args
     def handle(self, request : str):
         getattr(self, request)()
-        edits = ['edit_document', 'edit_family', 'edit_house', 'edit_person']
+        edits = ['edit_claim','edit_document', 'edit_family', 'edit_house', 'edit_person']
         if request not in edits: self.args.pop(request)
     
     def add_document(self):
@@ -143,6 +156,8 @@ class PostHandler:
             self.connection.add_person_document(self.args["edit_person"], self.args["add_document"])
         if "edit_house" in self.args:
             self.connection.add_house_document(self.args["edit_house"], self.args["add_document"])
+        if "edit_claim" in self.args:
+            self.connection.update_claim_document(self.args["edit_claim"], self.args["add_document"])
 
     def add_person_house_relation(self):
         if 'edit_house' in self.args:
@@ -155,6 +170,10 @@ class PostHandler:
 
     def add_status_of_house(self):
         self.connection.create_house_status(self.args['edit_house'], self.data)
+
+    def create_claim(self):
+        claim_id = self.connection.create_claim(self.args["claim_type"], self.args["edit_family"], self.data)
+        self.args["edit_claim"] = claim_id
 
     def create_family(self):
         self.args["edit_family"] = self.connection.create_family(self.data)
@@ -170,6 +189,9 @@ class PostHandler:
         self.args['edit_person'] = self.connection.create_person(self.data)
         if "edit_family" in self.args:
             self.connection.add_family_person(self.args["edit_family"], self.args['edit_person'], self.data['role'])
+
+    def edit_claim(self):
+        self.connection.update_claim(self.args["edit_claim"], self.args["claim_type"], self.data)
     
     def edit_document(self):
         self.connection.update_document(self.args["edit_document"], self.data)
@@ -191,6 +213,9 @@ class PostHandler:
     def edit_status_of_house(self):
         self.connection.update_house_status(self.args["edit_status_of_house"], self.data)
 
+    def delete_claim(self):
+        self.connection.delete_claim(self.args["delete_claim"])
+
     def delete_person_from_family(self):
         self.connection.delete_family_person(self.args["edit_family"], self.args["delete_person_from_family"])
 
@@ -199,6 +224,9 @@ class PostHandler:
 
     def delete_document_from_house(self):
         self.connection.delete_house_document(self.args["edit_house"], self.args["delete_document_from_house"])
+
+    def delete_response(self):
+        self.connection.update_claim_document(self.args["edit_claim"], 0)
 
     def set_dul(self):
         self.connection.update_dul(self.args["edit_person"], self.args["set_dul"])
@@ -215,6 +243,8 @@ class PostHandler:
             self.connection.add_person_document(self.args["edit_person"], self.args["edit_document"])
         if "edit_house" in self.args:
             self.connection.add_house_document(self.args["edit_house"], self.args["edit_document"])
+        if "edit_claim" in self.args:
+            self.connection.update_claim_document(self.args["edit_claim"], self.args["edit_document"])
 
     
 
@@ -223,10 +253,10 @@ class PostHandler:
 def post_editor():
     connection = selection.Connection()
     args = request.args.to_dict()
-    data = request.form.to_dict()
+    #data = request.form.to_dict()
     print("POST: ", request.args)
     print("POST: ", request.form)
-    PostHandler(data, args, connection).handle(data['action'])
+    PostHandler(request.form, args, connection).handle(request.form['action'])
     return redirect(f"/editor?{args_to_request(args)}")
 
 

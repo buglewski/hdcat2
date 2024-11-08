@@ -1,4 +1,5 @@
 import sqlite3
+from werkzeug.datastructures import ImmutableMultiDict 
 
 def selection_to_dict(selection : str, data: list):
     ans = {}
@@ -20,34 +21,52 @@ class Connection:
         self.connection.close()
 
     def select_claims(self, claim_id = 0):
-        selection = "claim.id, claim.type_id, claim_type.name, claim.cathegories, claim.family_id, claim.person_id, claim.document_id, claim.date_time, "\
-                    "claim.response_id, claim_response.name, claim.response_document_id, claim.comment"
+        selection = "claim.id, claim.type_id, claim_type.name, claim.cathegories, claim.family_id, claim.person_id, claim.date_time, "\
+                    "claim.response_id, claim_response.name, claim.response_document_id, document.type_id, document_type.name, document.name, document.series, document.number, claim.comment"
         
         request = f"""SELECT {selection} FROM claim
                     JOIN claim_type on claim.type_id = claim_type.id
                     JOIN claim_response on claim_response.id = claim.response_id
+                    LEFT JOIN document on document.id = claim.response_document_id
+                    LEFT JOIN document_type ON document_type.id = document.type_id
                     {f"WHERE claim.id = ?" if int(claim_id) > 0 else ""} 
                     ORDER BY claim.date_time DESC"""
         self.cursor.execute(request, (claim_id, )) if int(claim_id) > 0 else self.cursor.execute(request)
         result = selection_to_dict(selection, self.cursor.fetchall())
         return result
+    
+    def select_claims_with_families(self):
+        result = self.select_claims()
+        for claim_id, claim in result.items():
+            claim["persons"] = self.select_persons_of_family(family_id=claim["claim.family_id"])
+        return result
 
     def select_claims_of_family(self, family_id = 0):
-        selection = "claim.id, claim.type_id, claim_type.name, claim.cathegories, claim.family_id, claim.person_id, claim.document_id, claim.date_time, "\
-                    "claim.response_id, claim_response.name, claim.response_document_id, claim.comment"
+        selection = "claim.id, claim.type_id, claim_type.name, claim.cathegories, claim.family_id, "\
+                    "claim.person_id, claim.date_time, person.lastname, person.firstname, person.secondname, person.birthdate, "\
+                    "claim.response_id, claim_response.name, claim.response_document_id, document.type_id, document_type.name, document.name, document.series, document.number, claim.comment"
         
         request = f"""SELECT {selection} FROM claim
                     JOIN claim_type on claim.type_id = claim_type.id
                     JOIN claim_response on claim_response.id = claim.response_id
+                    LEFT JOIN document on document.id = claim.response_document_id
+                    LEFT JOIN document_type ON document_type.id = document.type_id
+                    JOIN person ON person.id = claim.person_id
                     WHERE claim.family_id = ?
-                    ORDER BY claim.date_time DESC"""
+                    ORDER BY claim.date_time"""
         self.cursor.execute(request, (family_id, ))
         result = selection_to_dict(selection, self.cursor.fetchall())
+        print(result)
         return result
     
     def select_claim_types(self):
         selection = "claim_type.id, claim_type.name"
         self.cursor.execute(f""" SELECT {selection} FROM claim_type""")
+        return selection_to_dict(selection, self.cursor.fetchall())
+
+    def select_claim_responses(self):
+        selection = "claim_response.id, claim_response.name"
+        self.cursor.execute(f""" SELECT {selection} FROM claim_response""")
         return selection_to_dict(selection, self.cursor.fetchall())
 
     def select_documents(self, document_id = 0):
@@ -284,6 +303,14 @@ class Connection:
         id = self.cursor.fetchone()[0]
         self.connection.commit()
         return id
+    
+    def create_claim(self, type_id, family_id, data : ImmutableMultiDict):
+        self.cursor.execute("""INSERT INTO claim(type_id, cathegories, family_id, person_id, date_time, comment) 
+                                VALUES (?, ?, ?, ?, ?, ?) RETURNING id""", 
+                                (type_id, '$'.join(data.getlist('cathegory')), family_id, data['claimer'], data['date_time'], data['comment']))
+        id = self.cursor.fetchone()[0]
+        self.connection.commit()
+        return id
 
     def create_family(self, data):
         self.cursor.execute("""INSERT INTO family(type_id) VALUES (?) RETURNING id""", data['type_id'])
@@ -315,6 +342,10 @@ class Connection:
         self.connection.commit()
         return id
     
+    def delete_claim(self, claim_id):
+        self.cursor.execute("DELETE FROM claim WHERE id =?", (claim_id,))
+        self.connection.commit()
+    
     def delete_house_document(self, house_id, document_id):
         self.cursor.execute("""DELETE FROM house_document WHERE document_id =? AND house_id = ?""", (document_id, house_id))
         self.connection.commit()
@@ -325,6 +356,20 @@ class Connection:
 
     def delete_family_person(self, family_id, person_id):
         self.cursor.execute("""DELETE FROM family_person WHERE family_id =? AND person_id = ?""", (family_id, person_id))
+        self.connection.commit()
+
+    def update_claim(self, claim_id, type_id, data : ImmutableMultiDict):
+        self.cursor.execute("""UPDATE claim
+                            SET type_id=?, cathegories=?, person_id=?, date_time=?, response_id=?, comment=?
+                            WHERE id = ?""",
+                            (type_id, '$'.join(data.getlist('cathegory')), data['claimer'], data['date_time'], data['response'], data['comment'], claim_id))
+        self.connection.commit()
+
+    def update_claim_document(self, claim_id, document_id):
+        self.cursor.execute("""UPDATE claim
+                            SET response_document_id=?
+                            WHERE id = ?""",
+                            (document_id, claim_id))
         self.connection.commit()
 
     def update_document(self, document_id, data):

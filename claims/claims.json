@@ -20,9 +20,37 @@
         ]
     },
     "2" : { 
-        "name" : "Признание малоимущим",
-        "number_of_cathegories": 0,
+        "name" : "Заключение договора социального найма",
+        "number_of_cathegories": 2,
         "possible_footings" : [],
-        "possible_cathegories":[]
+        "possible_cathegories":[
+            [
+                "Заключен договор социального найма"
+            ],
+            [
+                "Гражданин проживает в муниципальном жилом помещении",
+                "Решение суда"
+            ]
+        ]
+    },
+    "3" : { 
+        "name" : "Признание малоимущим",
+        "number_of_cathegories": 1,
+        "possible_footings" : [],
+        "possible_cathegories":[
+            [
+                "Признан малоимущим"
+            ]
+        ]
+    },
+    "4" : { 
+        "name" : "Приватизация",
+        "number_of_cathegories": 1,
+        "possible_footings" : [],
+        "possible_cathegories":[
+            [
+                "Приватизация"
+            ]
+        ]
     }
 }

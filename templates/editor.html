@@ -72,6 +72,45 @@
 
     <input type="button" value="Добавить существующую персону" onclick="location.href='?edit_family={{ args.edit_family }}&add_person_to_family';"> 
     <input type="button" value="Добавить новую персону" onclick="location.href='?edit_family={{ args.edit_family }}&create_person';">
+    
+    <h1>Заявления:</h1>
+    <table width="100%">
+        <tr>
+            <td></td>
+            <td>#</td>
+            <td>Тип</td>
+            <td>Категории</td>
+            <td>Дата и время</td>
+            <td>Ответ</td>
+            <td>Заявитель</td>
+        </tr>
+        {% for claim in context.family.claims.values() %}
+        <tr>
+            <td>
+            
+            <form method="post" class="btn_form" action="?edit_family={{ args.edit_family }}&delete_claim={{ claim['claim.id'] }}">
+                <input type="hidden"  name="action" value="delete_claim" />
+                <input type="submit" value = "Удалить"></button>
+            </form>
+            </td>
+            <td>{{loop.index}}</td>
+            <td> <a href="/editor?edit_family={{claim['claim.family_id']}}&edit_claim={{ claim['claim.id'] }}&claim_type={{ claim['claim.type_id'] }}">{{claim['claim_type.name']}}</a>  </td>
+            {% set cathegories = claim['claim.cathegories'].split('$') %}
+            <td> 
+                {% for cathegory in cathegories %}
+                    <div> {{ cathegory }} </div>
+                {% endfor %}
+            </td>
+            <td> {{claim['claim.date_time']}} </td>
+            <td> {{claim['claim_response.name']}} </td>
+            <td>
+                {{claim['person.lastname']}} {{claim['person.firstname']}} {{claim['person.secondname']}} ({{claim['person.birthdate']}})
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <input type="button" value="Добавить новое заявление" onclick="location.href='?edit_family={{ args.edit_family }}&create_claim';"> 
 
     {% endif %} 
     {# КОНЕЦ ПЕРСОН ВНУТРИ СЕМЬИ #}
@@ -541,11 +580,116 @@
 {% endif %}
 {# КОНЕЦ РЕДАКТОР ДОМОВ #}
 
+{# РЕДАКТОР КЛАЙМОВ #}
+{% if 'edit_claim' in args or 'create_claim' in args %}
+<div class="edit_box">
+    <h1> Заявление </h1>
+    <form method="get">
+    <input type="hidden" name="edit_family" value = "{{ args.edit_family }}">
+    {% if 'edit_claim' in args %} <input type="hidden" name="edit_claim" value = "{{ args.edit_claim }}"> {% endif %}
+    {% if 'create_claim' in args %} <input type="hidden" name="create_claim"> {% endif %}
+    <select name = "claim_type">
+        {% for t in context.claim.claim_types.values() %}
+        <option value="{{ t['claim_type.id'] }}"
+            {% if 'claim_type' in args and t['claim_type.id']|string==args['claim_type']|string %} 
+                selected="selected" 
+            {% endif %}> 
+            {{ t['claim_type.name'] }}  
+        </option>
+        {% endfor %}
+        <input type="submit" value="Выбрать"></button>
+    </select>
+    </form>
+    {% if 'claim_type' in args %}
+    {% set cathegories = context.claim.claim['claim.cathegories'].split('$') if 'edit_claim' in args %}
+    {% set ref112 = 'create_claim' if 'create_claim' in args else 'edit_claim='+args.edit_claim|string %}
+    <form method="post" action="?edit_family={{ args.edit_family }}&claim_type={{args.claim_type}}&{{ref112}}">
+        {% if 'edit_claim' in args %} <input type="hidden" name="action" value = "edit_claim"> {% endif %}
+        {% if 'create_claim' in args %} <input type="hidden" name="action" value = "create_claim"> {% endif %}
+        {% for i in range(context.claim.claim_metadata[args.claim_type].number_of_cathegories) %}
+        <div>
+            <label for="cathegory" class="form-label">Категория {{i+1}}:</label>
+            <select name = "cathegory">
+                {% for t in context.claim.claim_metadata[args.claim_type].possible_cathegories[i] %}
+                <option value="{{ t }}"
+                    {% if 'edit_claim' in args and loop.index<=cathegories|length and t==cathegories[loop.index-1] %} 
+                        selected="selected" 
+                    {% endif %}> 
+                    {{ t }}  
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endfor %}
+        <div>
+            <label for="claimer" class="form-label">Заявитель:</label>
+            <select name = "claimer">
+                {% for p in context.family.persons.values() %}
+                <option value="{{ p['person.id'] }}"
+                    {% if 'edit_claim' in args and p['person.id']==context.claim.claim['claim.person_id'] %} 
+                        selected="selected" 
+                    {% endif %}> 
+                    {{ p['person.lastname'] }} {{ p['person.firstname'] }} {{ p['person.secondname'] }} ({{ p['person.birthdate'] }}  )  
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="date_time" class="form-label">Дата и время:</label>
+            <input type="datetime-local"  name="date_time" value = "{% if 'edit_claim' in args %}{{ context.claim.claim['claim.date_time'] }}{% endif %}">
+        </div>
+        {% if 'edit_claim' in args %}
+        <div>
+            <div>
+                <label for="response" class="form-label">Ответ:</label>
+                <select name = "response">
+                    {% for p in context.claim.claim_responses.values() %}
+                    <option value="{{ p['claim_response.id'] }}"
+                        {% if p['claim_response.id']==context.claim.claim['claim.response_id'] %} 
+                            selected="selected" 
+                        {% endif %}> 
+                        {{ p['claim_response.name'] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        {% endif %}
+        <div><label for="comment" class="form-label">Комментарий:</label> </div>
+        <div><textarea name = "comment" rows = 2 cols="100">{% if 'edit_claim' in args %}{{ context.claim.claim['claim.comment'] }}{% endif %}</textarea></div>
+    <input type="submit"></button>
+    </form>
+    {% if 'edit_claim' in args %}
+    <div>
+        Ответный документ: 
+        {% if context.claim.claim['claim.response_document_id']!=0 %}  
+        <a href="/editor?edit_document={{ context.claim.claim['claim.response_document_id'] }}">
+        {{context.claim.claim['document_type.name']}} {{context.claim.claim['document.name']}} 
+        {{context.claim.claim['document.series']}} {{context.claim.claim['document.number']}}
+        </a>
+        <form method="post" class="btn_form" action="?edit_family={{args.edit_family}}&edit_claim={{args.edit_claim}}&claim_type={{args.claim_type}}&delete_response">
+            <input type="hidden"  name="action" value="delete_response" />    
+            <input type="submit" value = "Удалить"></button>
+        </form>
+        {% else %}
+        Не найден
+        <input type="button" value="Добавить существующий документ" onclick="location.href='?edit_family={{args.edit_family}}&edit_claim={{args.edit_claim}}&claim_type={{args.claim_type}}&add_document';"> 
+        <input type="button" value="Добавить новый документ" onclick="location.href='?edit_family={{args.edit_family}}&edit_claim={{args.edit_claim}}&claim_type={{args.claim_type}}&create_document';">
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+{% endif %}
+{# КОНЕЦ РЕДАКТОРА КЛАЙМОВ #}
+
 {# ДОБАВЛЯТЕЛЬ ДОКУМЕНТОВ #}
 
 {% if 'add_document' in args %} 
 
     {% set ref = 'edit_family='+args.edit_family|string if 'edit_family' in args else "" %}
+    {% set ref = ref + '&edit_claim='+args.edit_claim|string + '&claim_type='+args.claim_type|string if 'edit_claim' in args else ref + "" %}
     {% set ref = ref + '&edit_person='+args.edit_person|string if 'edit_person' in args else ref + "" %}
     {% set ref = ref + '&edit_house='+args.edit_house|string if 'edit_house' in args else ref + "" %}
 
@@ -624,14 +768,6 @@
 </div>
 {% endif %}
 {# КОНЕЦ РЕДАКТОР ДОКУМЕНТОВ #}
-
-{# РЕДАКТОР КЛАЙМОВ #}
-{% if 'edit_claim' in args or 'create_claim' in args %}
-<div>
-
-</div>
-{% endif %}
-{# КОНЕЦ РЕДАКТОРА КЛАЙМОВ #}
 
 
 {% endblock %}

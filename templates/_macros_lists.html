@@ -52,7 +52,7 @@
                 <td>  
                         {% for claim in family['claims'].values() %}
                         <div>
-                                <a href="/editor?edit_family={{L1}}&edit_claim={{ claim['claim.id'] }}">
+                                <a href="/editor?edit_family={{L1}}&edit_claim={{ claim['claim.id'] }}&claim_type={{ claim['claim.type_id'] }}">
                                 {{ loop.index }}. {{ claim['claim_type.name'] }} ({{claim['claim.date_time']}}) - {{ claim['claim_response.name'] }}
                                 </a>
                         </div>
