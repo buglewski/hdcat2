@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Persons{% endblock %}
+
+{% block bar %}
+{% endblock %}
+
+
+{% block content %}
+
+<form method="post">
+    <label for="login"> Логин:</label>
+    <input type="text" id="login" name="login" required>
+    <label for="password">  Пароль:</label>
+    <input type="password" id="password" name="password" required>
+    <label for="remember">Запомнить меня:</label>
+    <input type="checkbox" name="remember">
+    <input type="submit"></button>
+</form>
+
+{% endblock %}

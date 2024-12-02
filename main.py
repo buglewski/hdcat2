@@ -1,13 +1,103 @@
-from flask import Flask, request, render_template, redirect
-from werkzeug.datastructures import ImmutableMultiDict 
+from docxtpl import DocxTemplate
+from flask import Flask, Request, request, render_template, redirect, send_file
+from flask_login import LoginManager, UserMixin, login_required, login_user, logout_user, current_user
+from werkzeug.datastructures import ImmutableMultiDict, FileStorage
+from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
+from datetime import datetime
 import json
 import selection
 
-claim_file = open("claims/claims.json", 'r', encoding="UTF-8")
-claim_metadata = json.loads(claim_file.read())
+CLAIM_FILE = open("claims/claims.json", 'r', encoding="UTF-8")
+CLAIM_METADATA = json.loads(CLAIM_FILE.read())
+UPLOAD_FOLDER = 'instance/storage'
+CLAIM_TEMPORARY_FILE = "claims/temp.docx"
 
 app = Flask(__name__)
+
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1000 * 1000
+app.config['SECRET_KEY'] = 'MAKKDDDKKDKDKKKKKFJFFJJFFJJFJJF'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+login_manager = LoginManager(app)
+
+
+class User(UserMixin):
+    def __init__(self, data):
+        self.data = data
+        self.id = data['id']
+    def get_by_login(login):
+        connection = selection.Connection()
+        try:
+            data = connection.select_users(login=login)[login]
+            return User(data)
+        except:
+            return None
+    def get(user_id):
+        connection = selection.Connection()
+        try:
+            meow = connection.select_users2(user_id)[int(user_id)]
+            return User(meow)
+        except:
+            return None
+        
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(user_id)
+
+@app.route('/login/', methods=['GET', 'POST'])
+def login():
+    print(request.form)
+    if request.method == 'POST':
+        user = User.get_by_login(request.form['login'])
+        print(user.data)
+        if user.data and check_password_hash(user.data['password_hash'], request.form['password']):
+            remember = True if 'remember' in request.form else False
+            login_user(user, remember=remember)
+            return redirect('/')
+    return render_template('login.html')
+
+@app.route('/logout/')
+@login_required
+def logout():
+    logout_user()
+    return redirect('/')
+
+def upload_document(document_id, files : ImmutableMultiDict[str, FileStorage]):
+    if 'file' not in files or files['file'].filename == '':
+        return None
+    file = files['file']
+    if file:
+        filename = str(document_id)+'.'+file.filename.split('.')[1]
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return filename
+    return None
+
+@app.route('/download/<filename>')
+def download(filename):
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), download_name=filename, as_attachment=True )
+
+@app.route('/docx/<int:family_id>/<int:claim_id>')
+def create_docx(family_id, claim_id):
+    connection = selection.Connection()
+    context = {
+        'claim': connection.select_claims(claim_id=claim_id)[claim_id],
+        'persons': connection.select_persons_of_family(family_id=family_id),
+        'family': connection.select_families(family_id=family_id)[family_id],
+    }
+    context['claim']['claim.date_time'] = datetime.strptime(context['claim']['claim.date_time'], "%Y-%m-%dT%H:%M")
+    for person in context['persons'].values():
+        person['person.birthdate'] = datetime.strptime(person['person.birthdate'], "%Y-%m-%d")
+        person['passport.issue_date'] = datetime.strptime(person['passport.issue_date'], "%Y-%m-%d")
+
+    context['claimer'] = context['persons'][context['claim']['claim.person_id']]
+    template = CLAIM_METADATA[str(context['claim']['claim.type_id'])]['template']
+    doc = DocxTemplate(template)
+    doc.render(context)
+    doc.save(CLAIM_TEMPORARY_FILE)
+    filename = context['claim']['claim_type.name'] + '_' + str(context['claim']['claim.date_time']) + '.docx'
+    return send_file(CLAIM_TEMPORARY_FILE, download_name=filename, as_attachment=True )
 
 def args_to_request(args : dict):
     ans = ''
@@ -19,13 +109,13 @@ def args_to_request(args : dict):
 def get_documents():
     connection = selection.Connection()
     documents = connection.select_documents()
-    print(documents)
     return render_template("documents.html", documents=documents)
 
 @app.route("/", methods=['GET'])
 def get_families():
     connection = selection.Connection()
     families = connection.select_families_with_persons_and_claims()
+    #print(current_user.data)
     #print(families)
     return render_template("families.html", families=families)
 
@@ -53,16 +143,15 @@ def editor():
     connection = selection.Connection()
     args = request.args
     context = {}
-    print(args)
     if 'create_claim' in args: 
         context['claim'] = { 
             'claim_types' : connection.select_claim_types(),
-            'claim_metadata' : claim_metadata 
+            'claim_metadata' : CLAIM_METADATA 
         }
     elif 'edit_claim' in args: 
         claim_id = int(args["edit_claim"])
         context['claim'] = {
-            'claim_metadata' : claim_metadata,
+            'claim_metadata' : CLAIM_METADATA,
             'claim': connection.select_claims(claim_id=claim_id)[claim_id],
             'claim_types' : connection.select_claim_types(),
             'claim_responses' : connection.select_claim_responses()
@@ -142,8 +231,9 @@ POST LOGIC
 """
 
 class PostHandler:
-    def __init__(self, data: ImmutableMultiDict, args : dict = {}, connection : selection.Connection = selection.Connection()):
-        self.data = data
+    def __init__(self, data : Request, args : dict = {}, connection : selection.Connection = selection.Connection()):
+        self.data = data.form
+        self.files = data.files
         self.connection = connection
         self.args = args
     def handle(self, request : str):
@@ -194,7 +284,10 @@ class PostHandler:
         self.connection.update_claim(self.args["edit_claim"], self.args["claim_type"], self.data)
     
     def edit_document(self):
-        self.connection.update_document(self.args["edit_document"], self.data)
+        f = upload_document(self.args['edit_document'], self.files)
+        if f and (of:=self.connection.select_documents(self.args["edit_document"])[int(self.args["edit_document"])]['document.file']):
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], of))
+        self.connection.update_document(self.args["edit_document"], self.data, f)
     
     def edit_family(self):
         self.connection.update_family(self.args["edit_family"], self.data)
@@ -225,6 +318,9 @@ class PostHandler:
     def delete_document_from_house(self):
         self.connection.delete_house_document(self.args["edit_house"], self.args["delete_document_from_house"])
 
+    def delete_house_from_person(self):
+        self.connection.delete_person_house(self.args["delete_house_from_person"])
+
     def delete_response(self):
         self.connection.update_claim_document(self.args["edit_claim"], 0)
 
@@ -239,6 +335,8 @@ class PostHandler:
 
     def create_document(self):
         self.args["edit_document"] = self.connection.create_document(self.data)
+        f = upload_document(self.args['edit_document'], self.files)
+        self.connection.update_document(self.args["edit_document"], self.data, f)
         if "edit_person" in self.args:
             self.connection.add_person_document(self.args["edit_person"], self.args["edit_document"])
         if "edit_house" in self.args:
@@ -256,7 +354,8 @@ def post_editor():
     #data = request.form.to_dict()
     print("POST: ", request.args)
     print("POST: ", request.form)
-    PostHandler(request.form, args, connection).handle(request.form['action'])
+    print("POST: ", request.files)
+    PostHandler(request, args, connection).handle(request.form['action'])
     return redirect(f"/editor?{args_to_request(args)}")
 
 

@@ -2,6 +2,7 @@
     "1" : { 
         "name" : "Признание нуждающимся в ж/п",
         "number_of_cathegories": 3,
+        "template": "claims/needy.docx",
         "possible_cathegories":[
             [
                 "Признан нуждающимся в ж/п"
@@ -22,6 +23,7 @@
     "2" : { 
         "name" : "Заключение договора социального найма",
         "number_of_cathegories": 2,
+        "template": "claims/sochire.docx",
         "possible_footings" : [],
         "possible_cathegories":[
             [
@@ -36,6 +38,7 @@
     "3" : { 
         "name" : "Признание малоимущим",
         "number_of_cathegories": 1,
+        "template": "claims/poor.docx",
         "possible_footings" : [],
         "possible_cathegories":[
             [
@@ -46,6 +49,7 @@
     "4" : { 
         "name" : "Приватизация",
         "number_of_cathegories": 1,
+        "template": "claims/priv.docx",
         "possible_footings" : [],
         "possible_cathegories":[
             [

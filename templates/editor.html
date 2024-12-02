@@ -660,6 +660,7 @@
     <input type="submit"></button>
     </form>
     {% if 'edit_claim' in args %}
+    <a href="/docx/{{args.edit_family}}/{{args.edit_claim}}" target="_blank"> <button> Экспорт в Word </button> </a>
     <div>
         Ответный документ: 
         {% if context.claim.claim['claim.response_document_id']!=0 %}  
@@ -728,7 +729,7 @@
     <h1> Документ </h1>
     {% set document = context.document.document if 'create_document' not in args else {} %}
     {% set action = 'create_document' if 'create_document' in args else "edit_document" %}
-    <form method="post" id="general">
+    <form method="post" enctype="multipart/form-data">
         <input type="hidden"  name="action" value="{{action}}" />    
         <div>
             <label for="type_id" class="form-label">Тип документа:</label>
@@ -763,6 +764,10 @@
         <div><textarea name = "comment" rows = 2 cols = 100>{{ document['document.comment'] }}</textarea></div>
         <div><label for="attributes" class="form-label">Атрибуты:</label> </div>
         <div><textarea name = "attributes" rows = 2 cols = 100>{{ document['document.attributes'] }}</textarea> </div>
+        {% if document['document.file'] %} 
+        <div> Файл: <a href="download/{{ document['document.file'] }}" target="_blank"> {{ document['document.file'] }} </a></div>
+        {% endif %}
+        <div><label for="file" class="form-label">Загрузить файл:</label><input type="file" name="file" /></div>
         <input type="submit"></button>
     </form>
 </div>

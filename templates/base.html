@@ -11,6 +11,13 @@
     <body>
         <div id="header">
             <h1>HdCat2</h1>
+            <p> Добро пожаловать, 
+                {% if current_user.is_authenticated %}
+                {{current_user.data.lastname}} {{current_user.data.firstname}} {{current_user.data.secondname}}! (<a href="/logout"> Выйти </a>)
+                {% else %} 
+                Гость! <a href="/login"> (Войти) </a>
+                {% endif %}
+            </p>
             <div id="nav">
                 <ul>
                     <li><a href="/">Главная</a></li>
@@ -24,7 +31,7 @@
         </div>
         
         <div class="wrapper">
-            <div id="sidebar1" class="aside">
+            <div id="sidebar1">
                 {% block bar %}
                 {% endblock %}
             </div>
@@ -34,8 +41,6 @@
             </div>
         </div>
         <div id="footer">
-            <p>Contacts: admin@mysyte.com</p>
-            <p>Copyright © MySyte.com, 2016</p>
         </div>
     </body>
 </html>

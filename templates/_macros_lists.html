@@ -48,7 +48,16 @@
                         <input type="button" value="Открыть" onclick="location.href='/editor?edit_family={{L1}}';">
                 </td>
                 <td> {{ family['family_type.name']}} </td>
-                <td> {{ person_list(['fam_list'], family['persons']) }} </td>
+                <td> 
+                    {% for person in family['persons'].values() %}
+                    <div>
+                        <a href="editor?edit_person={{person['person.id']}}">
+                        {{ person['person.lastname'] }} {{ person['person.firstname'] }} {{ person['person.secondname'] }} ({{ person['person.birthdate'] }}) 
+                        {% if person['family_person.role'] != '' %} - {{ person['family_person.role'] }} {% endif %}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </td>
                 <td>  
                         {% for claim in family['claims'].values() %}
                         <div>
