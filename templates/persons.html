@@ -2,14 +2,24 @@
 
 {% block title %}Persons{% endblock %}
 
-{% block bar %}
-<h2> Меню: </h2>
-<div><a href = "/editor?create_person"> Новая персона </a> </div>
-{% endblock %}
-
-
 {% block content %}
 
-{{ person_list(persons=persons) }}
+<script type="text/babel">
+
+    const rootNode = document.getElementById("app");    // элемент для рендеринга приложения React
+    // получаем корневой элемент 
+    const root = ReactDOM.createRoot(rootNode);
+
+    const p = new Promise(function(resolve, reject){
+        return resolve(make_request("get_persons"));
+    }).then(persons => {
+        root.render(
+            <div>
+                <NavBar name={"Персоны"}/>
+                <PersonTable persons={persons}/> 
+            </div>
+        );
+    })
+</script>
 
 {% endblock %}

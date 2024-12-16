@@ -1,59 +1,23 @@
 from docxtpl import DocxTemplate
 from flask import Flask, Request, request, render_template, redirect, send_file
-from flask_login import LoginManager, UserMixin, login_required, login_user, logout_user, current_user
+from flask_json import FlaskJSON, JsonError, json_response, as_json
 from werkzeug.datastructures import ImmutableMultiDict, FileStorage
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+from requests_toolbelt import MultipartDecoder
 
-from datetime import datetime
-
+from datetime import datetime, date
 
 import json
 import selection
 
 from config import *
+from src.models import *
+from src.serializition import *
 
+FlaskJSON(app)
 
-class User(UserMixin):
-    def __init__(self, data):
-        self.data = data
-        self.id = data['id']
-    def get_by_login(login):
-        connection = selection.Connection()
-        try:
-            data = connection.select_users(login=login)[login]
-            return User(data)
-        except:
-            return None
-    def get(user_id):
-        connection = selection.Connection()
-        try:
-            meow = connection.select_users2(user_id)[int(user_id)]
-            return User(meow)
-        except:
-            return None
-        
-@login_manager.user_loader
-def load_user(user_id):
-    return User.get(user_id)
-
-@app.route('/login/', methods=['GET', 'POST'])
-def login():
-    print(request.form)
-    if request.method == 'POST':
-        user = User.get_by_login(request.form['login'])
-        print(user.data)
-        if user.data and check_password_hash(user.data['password_hash'], request.form['password']):
-            remember = True if 'remember' in request.form else False
-            login_user(user, remember=remember)
-            return redirect('/')
-    return render_template('login.html')
-
-@app.route('/logout/')
-@login_required
-def logout():
-    logout_user()
-    return redirect('/')
+db.init_app(app)
 
 def upload_document(document_id, files : ImmutableMultiDict[str, FileStorage]):
     if 'file' not in files or files['file'].filename == '':
@@ -96,19 +60,44 @@ def args_to_request(args : dict):
         ans += f"{key}={value}&"
     return ans
 
-@app.route("/documents", methods=['GET'])
-def get_documents():
-    connection = selection.Connection()
-    documents = connection.select_documents()
-    return render_template("documents.html", documents=documents)
-
 @app.route("/", methods=['GET'])
+def root():
+    return render_template("index.html")
+
+@app.route("/documents", methods=['GET'])
+def gdocuments():
+    return render_template("documents.html")
+
+@app.route("/documents/<int:document_id>", methods=['GET'])
+def gdocument(document_id : int):
+    return render_template("document.html", document_id=document_id)
+
+@app.route("/persons", methods=['GET'])
+def gpersons():
+    return render_template("persons.html")
+
+@app.route("/get_documents", methods=['GET'])
+def get_documents():
+    documents = db.session.query(Document).all()
+    documents_schema = DocumentLightSchema(many=True)
+    content = documents_schema.jsonify(documents).get_json()
+    return json_response(content=content)
+
+@app.route("/get_document/<int:document_id>", methods=['GET'])
+def get_document(document_id : int):
+    document = db.session.query(Document).filter(Document.id == document_id).first()
+    if document is None:
+        return json_response(status=404)
+    document_schema = DocumentSchema()
+    content = document_schema.jsonify(document).get_json()
+    return json_response(content=content)
+
+@app.route("/get_families", methods=['GET'])
 def get_families():
-    connection = selection.Connection()
-    families = connection.select_families_with_persons_and_claims()
-    #print(current_user.data)
-    #print(families)
-    return render_template("families.html", families=families)
+    families = db.session.query(Family).all()
+    family_schema = FamilySchema(many=True)
+    content = family_schema.jsonify(families).get_json()
+    return json_response(content=content)
 
 @app.route("/claims", methods=['GET'])
 def get_claims():
@@ -118,16 +107,38 @@ def get_claims():
 
 @app.route("/houses", methods=['GET'])
 def get_houses():
-    connection = selection.Connection()
-    status_types = connection.select_house_status_types()
-    houses = connection.select_houses_expand(request.args)
-    return render_template("houses.html", houses=houses, status_types=status_types)
+    houses = db.session.query(House).all()
+    house_schema = HouseSchema(many=True)
+    return house_schema.jsonify(houses)
 
-@app.route("/persons", methods=['GET'])
+@app.route("/get_persons", methods=['GET'])
 def get_persons():
-    connection = selection.Connection()
-    persons = connection.select_persons()
-    return render_template("persons.html", persons=persons)
+    persons = db.session.query(Person).all()
+    person_schema = PersonLightSchema(many=True)
+    content = person_schema.jsonify(persons).get_json()
+    return json_response(content=content)
+
+@app.route("/upload_document", methods=['POST'])
+def upload_document():
+    print(request.data)
+    print(request.form)
+    data = json.loads(request.form["document"])
+    print(data)
+    if "id" in data and (document := db.session.query(Document).filter(Document.id == data['id']).first()):
+        document.typename = data['typename']
+        document.title = data['title']
+        document.series = data['series']
+        document.number = data['number']
+        document.issuer = data['issuer']
+        document.comment = data['comment']
+        document.issue_date = datetime.strptime(data['issue_date'], '%Y-%m-%d') if 'issue_date' in data else None
+        db.session.commit()
+    else:
+        new_document = Document(**data)
+        db.session.add(new_document)
+        db.session.commit()
+    return json_response()
+
 
 @app.route("/editor", methods=['GET'])
 def editor():

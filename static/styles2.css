@@ -115,27 +115,15 @@ body {
     font-size: .8em;    
     text-align: center;
     padding: 10px 10px 30px 10px;
-}
-table {
-    border-collapse: collapse;
-    font-size: small;
-    width: 100%;
-  }
-  
-  th, td {
-    border: 1px solid black;
-    padding: 8px;
-    text-align: left;
-  }
- 
- .btn_form { display: inline-block; }
+} 
+.btn_form { display: inline-block; }
 
- .edit_box {
+.edit_box {
     background-color: #ffffff;
     border: 1px solid #726e61;
     padding: 5px 5px 5px 5px;
  }
- 
+
 /*
 #nav ul, #header h1, .wrapper, #footer p {
     max-width: 1200px;

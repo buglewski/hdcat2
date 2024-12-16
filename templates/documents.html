@@ -2,11 +2,25 @@
 
 {% block title %}Документы{% endblock %}
 
-{% block bar %}
-<h2> Меню: </h2>
-<div><a href = "/editor?create_document"> Создать новый документ </a> </div>
-{% endblock %}
-
 {% block content %}
-{{ doc_list(documents) }}
+
+
+<script type="text/babel">
+
+    const rootNode = document.getElementById("app");    // элемент для рендеринга приложения React
+    // получаем корневой элемент 
+    const root = ReactDOM.createRoot(rootNode);
+
+    const p = new Promise(function(resolve, reject){
+        return resolve(make_request("get_documents"));
+    }).then(documents => {
+        root.render(
+            <div>
+                <NavBar name={"Документы"}/>
+                <DocumentTable documents={documents}/> 
+            </div>
+        );
+    })
+</script>
+
 {% endblock %}
