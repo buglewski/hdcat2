@@ -17,16 +17,16 @@ class User(db.Model):
     position: Mapped[str] = mapped_column(String(255), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
-    updated_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
     
 
 class BaseNode(db.Model):
     __abstract__ = True
     actual: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    created_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     created_by : Mapped[str] = mapped_column(String(255), ForeignKey(User.username), nullable=True)
-    updated_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    updated_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
     updated_by : Mapped[str] = mapped_column(String(255), ForeignKey(User.username), nullable=True)
     comment: Mapped[str] = mapped_column(String(1023), nullable=True)
 
@@ -43,7 +43,17 @@ class Document(BaseNode):
     file: Mapped[str] = mapped_column(String(255), nullable=True)
 
     persons : Mapped[List["Person"]] = relationship(secondary="person_document", back_populates="documents")
+    claims : Mapped[List["Claim"]] = relationship(secondary="claim_document", back_populates="documents")
     houses : Mapped[List["House"]] = relationship(secondary="house_document", back_populates="documents")
+
+    def update(self, **kwargs):
+        self.typename = kwargs['typename']
+        self.title = kwargs.get('title')
+        self.series = kwargs.get('series')
+        self.number = kwargs.get('number')
+        self.issuer = kwargs.get('issuer')
+        self.comment = kwargs.get('comment')
+        self.issue_date = kwargs.get('issue_date')
 
 class Family(BaseNode):
     __tablename__ = 'family'
@@ -51,7 +61,10 @@ class Family(BaseNode):
     typename: Mapped[str] = mapped_column(String(255))
 
     claims : Mapped[List["Claim"]] = relationship(back_populates='family')
-    persons : Mapped[List["Person"]] = relationship(secondary="family_person", back_populates="families")
+    family_persons : Mapped[List["FamilyPerson"]] = relationship()
+
+    def update(self, **kwargs):
+        self.typename = kwargs.get('typename') if kwargs.get('typename') else self.typename
 
 class House(BaseNode):
     __tablename__ = 'house'
@@ -67,6 +80,33 @@ class House(BaseNode):
     documents : Mapped[List["Document"]] = relationship(secondary="house_document", back_populates='houses')
     person_houses : Mapped[List["PersonHouse"]] = relationship(back_populates='house')
     statuses : Mapped[List["HouseStatus"]] = relationship()
+
+    @property
+    def address(self):
+        return ' '.join([self.region + ',', self.city +',', self.prefix, self.street, self.house, '-' + self.flat if self.flat else ''])
+        
+    @staticmethod
+    def to_addr(kwargs):
+        ans = {
+            'region' : kwargs.get('region'),
+            'city' : kwargs.get('city'),
+            'prefix' : kwargs.get('prefix'),
+            'street' : kwargs.get('street'),
+            'house' : kwargs.get('house'),
+            'flat' : kwargs.get('flat')
+        }
+        print(ans)
+        return ans
+
+    def update(self, **kwargs):
+        self.region = kwargs.get('region') if kwargs.get('region') else self.region
+        self.city = kwargs.get('city') if kwargs.get('city') else self.city
+        self.prefix = kwargs.get('prefix') if kwargs.get('prefix') else self.prefix
+        self.street = kwargs.get('street') if kwargs.get('street') else self.street
+        self.house = kwargs.get('house') if kwargs.get('house') else self.house
+        self.flat = kwargs.get('flat') if kwargs.get('flat') else self.flat
+        self.area = float(kwargs.get('area')) if kwargs.get('area') else self.comment
+        
         
 
 
@@ -83,44 +123,54 @@ class Person(BaseNode):
     regaddr_id : Mapped[int] = mapped_column(Integer, ForeignKey(House.id), nullable=True)
     factaddr_id : Mapped[int] = mapped_column(Integer, ForeignKey(House.id), nullable=True)
     snils : Mapped[str] = mapped_column(String, ForeignKey(Document.id), nullable=True)
-    mother_id : Mapped[int] = mapped_column(Integer, ForeignKey("person.id"), nullable=True)
-    father_id : Mapped[int] = mapped_column(Integer, ForeignKey("person.id"), nullable=True)
-    spouse_id : Mapped[int] = mapped_column(Integer, ForeignKey("person.id"), nullable=True)
-
     passport : Mapped[Document] = relationship(foreign_keys=[passport_id])
     housereg : Mapped[House] = relationship(foreign_keys=[regaddr_id])
     housefact : Mapped[House] = relationship(foreign_keys=[factaddr_id])
-    mother : Mapped["Person"] = relationship(foreign_keys=[mother_id], remote_side=[id], post_update=True, back_populates='_mchildren')
-    father : Mapped["Person"] = relationship(foreign_keys=[father_id], remote_side=[id], post_update=True, back_populates='_fchildren')
-    spouse : Mapped["Person"] = relationship(foreign_keys=[spouse_id], remote_side=[id], post_update=True)
-
-    _fchildren : Mapped[List["Person"]] = relationship(foreign_keys=[father_id], post_update=True, back_populates='father')
-    _mchildren : Mapped[List["Person"]] = relationship(foreign_keys=[mother_id], post_update=True, back_populates='mother') 
-
-    @property
-    def children(self) -> Mapped[List["Person"]]:
-        if self.gender == 'MALE':
-            return self._fchildren
-        elif self.gender == 'FEMALE':
-            return self._mchildren
-        raise "THERE ARE ONLY TWO GENDERS! - 'MALE' AND 'FEMALE'"
 
     documents : Mapped[List[Document]] = relationship(secondary="person_document", back_populates='persons')
-    families : Mapped[List[Family]] = relationship(secondary="family_person", back_populates='persons')
+    family_persons : Mapped[List["FamilyPerson"]] = relationship(back_populates='person')
     person_houses : Mapped[List["PersonHouse"]] = relationship(back_populates='person')
+
+    def update(self, **kwargs):
+        self.lastname = kwargs.get('lastname') if kwargs.get('lastname') else self.lastname
+        self.firstname = kwargs.get('firstname') if kwargs.get('firstname') else self.firstname
+        self.secondname = kwargs.get('secondname') if kwargs.get('secondname') else self.secondname
+        self.gender = kwargs.get('gender') if kwargs.get('gender') else self.gender
+        self.phone = kwargs.get('phone') if kwargs.get('phone') else self.phone
+        self.snils = kwargs.get('snils') if kwargs.get('snils') else self.snils
+        self.comment = kwargs.get('comment') if kwargs.get('comment') else self.comment
+        self.birthday = kwargs.get('birthday') if kwargs.get('birthday') else self.birthday
+        self.passport_id = kwargs.get('passport_id') if kwargs.get('passport_id') else self.passport_id
+        self.regaddr_id = kwargs.get('regaddr_id') if kwargs.get('regaddr_id') else self.regaddr_id
+        self.factaddr_id = kwargs.get('factaddr_id') if kwargs.get('factaddr_id') else self.factaddr_id
 
 class Claim(BaseNode):
     __tablename__ = 'claim'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     typename: Mapped[str] = mapped_column(String(255))
-    attributes: Mapped[str] = mapped_column(String())
-    filed_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    attributes: Mapped[str] = mapped_column(String(), nullable=True)
+    filed_on : Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     family_id : Mapped[int] = mapped_column(Integer, ForeignKey(Family.id))
     claimer_id : Mapped[int] = mapped_column(Integer, ForeignKey(Person.id))
-    response: Mapped[bool] = mapped_column(Boolean, nullable=True, default=None)
+    response: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
+    response_description: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    documents : Mapped[List[Document]] = relationship(secondary="claim_document", back_populates='claims')
 
     family : Mapped[Family] = relationship(back_populates="claims")
     claimer : Mapped[Person] = relationship()
+
+    def update(self, **kwargs):
+        try:
+            self.filed_on = datetime.strptime(kwargs['filed_on'], '%Y-%m-%dT%H:%M')
+        except: pass
+        self.typename = kwargs.get('typename') if kwargs.get('typename') else self.typename
+        self.family_id = kwargs.get('family_id') if kwargs.get('family_id') else self.family_id
+        self.claimer_id = kwargs.get('claimer_id') if kwargs.get('claimer_id') else self.claimer_id
+        self.response = kwargs.get('response') if kwargs.get('response') else self.response
+        self.response_description = kwargs.get('response_description') if kwargs.get('response_description') else self.response_description
+        self.actual = kwargs.get('actual') if kwargs.get('actual') else self.actual
+        self.attributes = kwargs.get('attributes') if kwargs.get('attributes') else self.attributes
 
 
 class FamilyPerson(BaseNode):
@@ -129,8 +179,23 @@ class FamilyPerson(BaseNode):
     family_id : Mapped[int] = mapped_column(Integer, ForeignKey(Family.id))
     person_id : Mapped[int] = mapped_column(Integer, ForeignKey(Person.id))
     role: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    family : Mapped[Family] = relationship(back_populates="family_persons")
+    person : Mapped[Person] = relationship(back_populates="family_persons")
     UniqueConstraint(family_id, person_id)
 
+    def update(self, **kwargs):
+        self.family_id = kwargs.get('family_id') if kwargs.get('family_id') else self.family_id
+        self.person_id = kwargs.get('person_id') if kwargs.get('person_id') else self.person_id
+        self.role = kwargs.get('role') if kwargs.get('role') else self.role
+
+
+class ClaimDocument(BaseNode):
+    __tablename__ = 'claim_document'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    claim_id : Mapped[int] = mapped_column(Integer, ForeignKey(Claim.id))
+    document_id : Mapped[int] = mapped_column(Integer, ForeignKey(Document.id))
+    UniqueConstraint(claim_id, document_id)
 
 class HouseDocument(BaseNode):
     __tablename__ = 'house_document'
@@ -157,6 +222,10 @@ class PersonDocument(BaseNode):
     document_id : Mapped[int] = mapped_column(Integer, ForeignKey(Document.id))
     UniqueConstraint(person_id, document_id)
 
+    def update(self, **kwargs):
+        self.person_id = kwargs['person_id']
+        self.document_id = kwargs['document_id']
+
 class PersonHouse(BaseNode):
     __tablename__ = 'person_house'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -164,10 +233,25 @@ class PersonHouse(BaseNode):
     house_id : Mapped[int] = mapped_column(Integer, ForeignKey(House.id))
     relation : Mapped[str] = mapped_column(String(255), nullable=True)
     attributes : Mapped[str] = mapped_column(String(255), nullable=True)
+
+    date_from: Mapped[date] = mapped_column(Date, nullable=True)
+    date_to: Mapped[date] = mapped_column(Date, nullable=True)
     UniqueConstraint(person_id, house_id, relation)
 
     person : Mapped[Person] = relationship(back_populates='person_houses')
     house : Mapped[House] = relationship(back_populates='person_houses')
+
+    def update(self, **kwargs):
+        try:
+            self.date_from = datetime.strptime(kwargs['date_from'], '%Y-%m-%d')
+        except: pass
+        try:
+            self.date_to = datetime.strptime(kwargs['date_to'], '%Y-%m-%d')
+        except: pass
+        self.person_id = kwargs.get('person_id') if kwargs.get('person_id') else self.person_id
+        self.house_id = kwargs.get('house_id') if kwargs.get('house_id') else self.person_id
+        self.relation = kwargs.get('relation') if kwargs.get('relation') else self.relation
+        self.comment = kwargs.get('comment') if kwargs.get('comment') else self.comment
     
 
 if __name__ == '__main__':

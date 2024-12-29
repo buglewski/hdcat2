@@ -30,11 +30,19 @@ class PersonLightSchema(ma.SQLAlchemyAutoSchema):
     housefact = ma.Nested(HouseLightSchema)
     snils = ma.Nested(DocumentLightSchema)
 
+class FamilyPersonLightSchema(ma.SQLAlchemyAutoSchema):
+    class Meta(MetaBase):
+        model = FamilyPerson
+    person = ma.Nested(PersonLightSchema)
+
 class FamilyLightSchema(ma.SQLAlchemyAutoSchema):
     class Meta(MetaBase):
         model = House
-    persons = ma.Nested(PersonLightSchema, many=True)
+    family_persons = ma.Nested(FamilyPersonLightSchema, many=True)
     claims = ma.Nested(ClaimLightSchema, many=True)
+
+class FamilyPersonSchema(FamilyPersonLightSchema):
+    family = ma.Nested(FamilyLightSchema)
 
 class PersonHouseSchema(ma.SQLAlchemyAutoSchema):
     class Meta(MetaBase):
@@ -46,12 +54,14 @@ class HouseStatusSchema(ma.SQLAlchemyAutoSchema):
     class Meta(MetaBase):
         model = HouseStatus
 
+
 class DocumentSchema(DocumentLightSchema):
     persons = ma.Nested(PersonLightSchema, many=True)
     houses = ma.Nested(HouseLightSchema, many=True)
 
 class ClaimSchema(ClaimLightSchema):
     family = ma.Nested(FamilyLightSchema)
+    documents = ma.Nested(DocumentLightSchema, many=True)
 
 class HouseSchema(HouseLightSchema):
     person_houses = ma.Nested(PersonHouseSchema, many=True)
@@ -62,10 +72,13 @@ class PersonSchema(PersonLightSchema):
     mother = ma.Nested(PersonLightSchema)
     father = ma.Nested(PersonLightSchema)
     spouse = ma.Nested(PersonLightSchema)
-    children = ma.Nested(PersonLightSchema, many=True)
     documents = ma.Nested(DocumentLightSchema, many=True)
-    families = ma.Nested(FamilyLightSchema, many=True)
     person_houses = ma.Nested(PersonHouseSchema, many=True)
+    family_persons = ma.Nested(FamilyPersonSchema, many=True)
+
+class FamilyPersonBigSchema(FamilyPersonLightSchema):
+    person = ma.Nested(PersonSchema)
 
 class FamilySchema(FamilyLightSchema):
-    persons = ma.Nested(PersonSchema, many=True)
+    family_persons = ma.Nested(FamilyPersonBigSchema, many=True)
+    claims = ma.Nested(ClaimSchema, many=True)

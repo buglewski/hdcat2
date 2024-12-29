@@ -1,14 +1,9 @@
-/* внешние границы таблицы серого цвета толщиной 1px */
-* {
-    box-sizing: border-box;
+a:link {
+    color: #000000;
 }
-html, body, div, span, h1, h2, h3, h4, h5, h6, p, a, ul, li{
-                 
-    margin: 0;
-    padding: 0;
-    border: 0;
-    font-size: 100%;
-    vertical-align: baseline;
+
+a:visited {
+    color: rgb(0, 0, 0);
 }
 
 h1 {
@@ -80,57 +75,4 @@ body {
 .aside li{ 
     list-style-type: none;
 }
-#sidebar1 {
-    float: left;
-    width: 10%; 
-    padding: 10px 10px 10px 20px;
-}
-#sidebar2 {
-    float: right;
-    width: 20%; 
-    padding: 0 20px 0 10px;
-}
-#article{
-    background-color: #fafafa;
-    border-left: 1px solid #ccc;
-    border-right: 1px solid #ccc;
-    margin-left: 10%; /* падение */
-    padding: 15px;
-}
-#article:after{
-    clear:both;
-    display:table;
-    content:'';
-}
-#article h2{
-    font-size: 1.3em;
-    margin-bottom:15px;
-}
-#article p{
-    line-height: 150%;
-    margin-bottom: 15px;
-}
-#footer{ 
-    border-top: 1px solid #cccccc;
-    font-size: .8em;    
-    text-align: center;
-    padding: 10px 10px 30px 10px;
-} 
-.btn_form { display: inline-block; }
-
-.edit_box {
-    background-color: #ffffff;
-    border: 1px solid #726e61;
-    padding: 5px 5px 5px 5px;
- }
-
-/*
-#nav ul, #header h1, .wrapper, #footer p {
-    max-width: 1200px;
-    margin: 0 auto; 
-}
-.wrapper, #nav, #header, #footer{
-    min-width: 768px;
-}*/
-
 

@@ -3,8 +3,8 @@ from flask_login import LoginManager
 
 import json
 
-CLAIM_FILE = open("claims/claims.json", 'r', encoding="UTF-8")
-CLAIM_METADATA = json.loads(CLAIM_FILE.read())
+SETTINGS_FILE = open("settings.json", 'r', encoding="UTF-8")
+SETTINGS = json.loads(SETTINGS_FILE.read())
 UPLOAD_FOLDER = 'instance/storage'
 CLAIM_TEMPORARY_FILE = "claims/temp.docx"
 
