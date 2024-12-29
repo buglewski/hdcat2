@@ -6,21 +6,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
 from datetime import datetime
+
+
 import json
 import selection
 
-CLAIM_FILE = open("claims/claims.json", 'r', encoding="UTF-8")
-CLAIM_METADATA = json.loads(CLAIM_FILE.read())
-UPLOAD_FOLDER = 'instance/storage'
-CLAIM_TEMPORARY_FILE = "claims/temp.docx"
-
-app = Flask(__name__)
-
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1000 * 1000
-app.config['SECRET_KEY'] = 'MAKKDDDKKDKDKKKKKFJFFJJFFJJFJJF'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-login_manager = LoginManager(app)
+from config import *
 
 
 class User(UserMixin):
