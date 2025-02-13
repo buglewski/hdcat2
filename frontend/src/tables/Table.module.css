@@ -1,0 +1,7 @@
+.tableLine {
+    cursor: pointer;
+}
+
+.tableLine:hover td, .tableLine:hover th {
+    background-color:rgb(224, 224, 224);
+}
