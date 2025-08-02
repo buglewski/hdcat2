@@ -1,5 +1,5 @@
 from flask_marshmallow import Marshmallow
-from api.config import *
+from config import *
 from models import *
 
 ma = Marshmallow(app)

@@ -2,6 +2,7 @@ __pycache__
 templates_old
 venv
 /.vscode
+.venv
 
 frontend/node_modules
 /.pnp
